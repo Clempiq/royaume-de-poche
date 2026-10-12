@@ -1,0 +1,16 @@
+{
+  "name": "Royaume de Poche",
+  "short_name": "Royaume",
+  "description": "Un RPG d'aventure à jouer sur téléphone.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#2b1a0d",
+  "theme_color": "#6b3f1f",
+  "lang": "fr",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
