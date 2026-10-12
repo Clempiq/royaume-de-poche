@@ -4,7 +4,7 @@ import { RARETES, BASES, NOMS_STATS } from '../data/items.js'
 import { PNJ } from '../data/world.js'
 import { statsObjet } from '../engine/loot.js'
 
-export const art = (nom) => `/art/${nom}.webp`
+export const art = (nom) => `${import.meta.env.BASE_URL}art/${nom}.webp`
 
 export function Barre({ val, max, sorte = 'pv', texte, className = '' }) {
   const p = max > 0 ? Math.max(0, Math.min(100, (val / max) * 100)) : 0
