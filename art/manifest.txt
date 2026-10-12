@@ -27,3 +27,16 @@ p-miche https://www.figma.com/api/mcp/asset/4b766b11-08da-40fc-861d-d9717c05ffdf
 p-maree https://www.figma.com/api/mcp/asset/8dff3309-cc2e-4f57-9311-a6d13bc76aaf.png
 p-enclume https://www.figma.com/api/mcp/asset/26fdb149-5fa8-4b22-8e51-1794961512f0.png
 p-roi https://www.figma.com/api/mcp/asset/3b656ffe-bd9b-4784-b5b2-020aace336a2.png
+t-boutique https://www.figma.com/api/mcp/asset/b2dd349c-7e8c-41d3-864a-b0a2495aa928.png
+t-auberge https://www.figma.com/api/mcp/asset/10bcf768-7c6c-4597-b8a9-593776102d80.png
+t-arene https://www.figma.com/api/mcp/asset/bfa98d3a-c2c9-4d32-a704-007a0a2f2ae7.png
+t-boulangerie https://www.figma.com/api/mcp/asset/eba569bb-0245-4281-89fa-949325b28ee6.png
+t-maitre https://www.figma.com/api/mcp/asset/8bbe4ef9-03ef-49fe-873f-55ec08320b80.png
+t-port https://www.figma.com/api/mcp/asset/f1c77e94-f34f-4c1c-9058-760697b5cfd6.png
+t-enchanteur https://www.figma.com/api/mcp/asset/437e08f3-85ff-4135-b29c-80b2bbcab46d.png
+t-herboristerie https://www.figma.com/api/mcp/asset/2d0e8315-9b0b-4f49-8c49-03092d712d8e.png
+t-mine https://www.figma.com/api/mcp/asset/3a5fd994-d51b-47e5-8422-ec501df31a36.png
+t-entrainement https://www.figma.com/api/mcp/asset/8b09f880-3b2d-4eb6-8b7e-c1299fd03ab9.png
+t-forge https://www.figma.com/api/mcp/asset/abfe2151-f808-4a87-8206-1c0224c62da7.png
+t-porte https://www.figma.com/api/mcp/asset/5c16cf25-79cb-4944-b92d-ba9ccd4d97d5.png
+t-voyage https://www.figma.com/api/mcp/asset/bfbf9c3b-681e-44e7-ac73-171bd6b899ab.png
