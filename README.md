@@ -2,6 +2,8 @@
 
 RPG d'aventure solo, pensé pour le téléphone et joué dans le navigateur. Troisième jeu du studio Cosmoth.
 
+En ligne : https://royaume-de-poche.vercel.app (mode test : https://royaume-de-poche.vercel.app/?vitesse=60)
+
 Le roi Pépin a cassé le Sceptre des Saisons. Une équipe de trois héros (Bastien le guerrier, Lulu la mage, Pia la rôdeuse) parcourt le royaume pour récupérer les éclats, gardés par des champions d'arène.
 
 ## Ce qu'il y a dans la V1
