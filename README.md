@@ -8,15 +8,16 @@ Le roi Pépin a cassé le Sceptre des Saisons. Une équipe de trois héros (Bast
 
 ## Ce qu'il y a dans le jeu
 
-- **Combats tactiques en deux phases** : vous faites agir vos 3 héros dans l'ordre que vous voulez (héros, capacité, cible), puis les monstres répondent. Dégâts estimés affichés avant de taper, esquive selon la vitesse, combat automatique et vitesse ×2.
-- **4 capacités par héros, de types différents**, comme dans Pokémon. Les héros en apprennent plus en montant de niveau ou auprès des maîtres d'armes, et choisissent lesquelles emporter. 6 types (Neutre, Feu, Eau, Plante, Foudre, Roche).
-- **Équipement** : la puissance de l'arme s'ajoute à chaque capacité, une arme élémentaire donne son type à l'attaque de base, les objets tenus (Charbon ardent, Perle d'eau…) renforcent un type. 4 raretés, bonus tirés au hasard, forge et atelier d'enchantement.
-- **3 villes avec leurs bâtiments** : boutique, auberge, arène, maître d'armes partout ; boulangerie (repas pour 3 combats) à Bourg-Brioche, expéditions en mer à Port-Gougère, atelier d'enchantement à Fort-Cramoisi.
-- **12 monstres et 3 champions** avec une mécanique propre (spores, renfort à mi-vie, changement de type).
-- **Voyages chronométrés** façon Clash of Clans (15 min puis 3 h), avec un carnet de route à l'arrivée.
-- **Campement** : mine d'or, terrain d'entraînement, herboristerie et forge, un seul chantier à la fois.
+- **Combats tactiques à intentions** : chaque monstre annonce son action et sa cible avant votre tour (dégâts estimés compris). Les champions et les élites **préparent** une grosse attaque un tour à l'avance. Vous faites agir vos 3 héros dans l'ordre que vous voulez, puis les monstres répondent. Combat automatique et vitesse ×2.
+- **Héros spécialisés** : Bastien (neutre/roche) interrompt à coup sûr, provoque et ouvre la garde (« exposé » : +30 % pour l'allié suivant) ; Lulu (feu/eau) attaque et soigne ; Pia (plante/foudre) frappe vite et fort. 4 capacités emportées (5 avec la Bibliothèque), certaines avec un temps de recharge.
+- **Zones en parcours** : 6 cases jouées dans l'ordre (3 combats, un feu de camp, un élite, le champion). Les PV ne remontent pas entre les combats ; en cas de défaite, on reprend au dernier point de passage. Chaque case ne rapporte qu'une fois. La chasse libre reste ouverte pour s'entraîner.
+- **Routes jouables** : entre deux villes, la route est un parcours de même forme. Aucune attente.
+- **Village façon Clash of Clans** : Château (plafonne les autres bâtiments et débloque les nouveaux), mine d'or, herboristerie, atelier (améliorer et relancer l'équipement), caserne, remparts, bibliothèque, hutte du bâtisseur (second ouvrier). Constructions avec de l'or et du temps.
+- **Butin façon Diablo** : 4 raretés, bonus tirés au hasard, et des armes légendaires à pouvoir (Lame du Contre, Sceptre de l'Écho, Arc du Chasseur).
+- **3 villes** avec boutique, auberge (repos et repas offerts), maître d'armes ; expéditions en mer à Port-Gougère.
+- **Une vraie fin**, puis un **défi du jour** : un champion déjà battu, une règle tirée de la date, un record local en nombre de tours.
 
-Les anciennes sauvegardes sont mises à niveau automatiquement (`migrer` dans `src/engine/game.js`).
+Les anciennes sauvegardes sont mises à niveau automatiquement (`migrer` dans `src/engine/game.js`), avec remboursement de ce qui a disparu.
 
 Pas de serveur ni de base de données : la partie est sauvegardée dans le navigateur (`localStorage`).
 
@@ -27,10 +28,11 @@ npm install
 npm run dev          # jeu en local
 npm test             # tests du moteur
 npm run simulation   # 30 parties jouées par une IA, pour vérifier l'équilibrage
+                     # (VILLAGE=1 : l'IA investit aussi dans le village)
 npm run e2e          # parcours complet dans un navigateur mobile (Playwright, aperçu lancé sur le port 4174)
 ```
 
-**Mode test** : ajouter `?vitesse=60` à l'adresse fait passer le temps du jeu 60 fois plus vite (voyages, chantiers, production). `?vitesse=1` revient à la normale.
+**Mode test** : ajouter `?vitesse=60` à l'adresse fait passer le temps du jeu 60 fois plus vite (chantiers, production, expéditions). `?vitesse=1` revient à la normale.
 
 ## Organisation
 
@@ -41,6 +43,8 @@ npm run e2e          # parcours complet dans un navigateur mobile (Playwright, a
 - `scripts/preparer-art.py` : détoure les personnages et convertit tout en WebP dans `public/art/`.
 
 ## Ajouter une illustration
+
+Les bâtiments du village (château, caserne, remparts, bibliothèque, hutte) ont été générés par Codex dans le style des autres, et déposés directement dans `art/src/`.
 
 1. Ajouter une ligne `nom lien` dans `art/manifest.txt` et pousser : l'action « Récupérer les illustrations » télécharge l'image dans `art/src/`.
 2. `git pull`, puis `npm run art` pour générer le WebP dans `public/art/`.

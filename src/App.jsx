@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as G from './engine/game.js'
 import { BATIMENTS } from './data/camp.js'
-import { INTRO, FIN_V1, VILLES } from './data/world.js'
+import { INTRO, FIN, VILLES, VOYAGES, REGLES_DEFI } from './data/world.js'
+import { MONSTRES } from './data/monsters.js'
 import { vitesse } from './engine/util.js'
 import Titre from './ui/Titre.jsx'
-import Ville, { Voyage } from './ui/Ville.jsx'
+import Ville from './ui/Ville.jsx'
+import Parcours from './ui/Parcours.jsx'
 import Combat from './ui/Combat.jsx'
 import Equipe from './ui/Equipe.jsx'
 import Boutique from './ui/Boutique.jsx'
 import Camp from './ui/Camp.jsx'
 import Bestiaire from './ui/Bestiaire.jsx'
-import { Rapport, Carnet, RetourExpedition } from './ui/Rapport.jsx'
-import { Boulangerie, Maitre, Port, Enchanteur } from './ui/Batiments.jsx'
-import { Dialogue, Modale } from './ui/commun.jsx'
+import { Rapport, RapportDefi, RetourExpedition } from './ui/Rapport.jsx'
+import { Maitre, Port } from './ui/Batiments.jsx'
+import { Dialogue, Modale, art } from './ui/commun.jsx'
 import { basculerSon, son, sonActif } from './ui/sons.js'
 
 export default function App() {
@@ -23,7 +25,8 @@ export default function App() {
   const [sousEcran, setSousEcran] = useState(null)
   const [combat, setCombat] = useState(null)
   const [rapport, setRapport] = useState(null)
-  const [carnet, setCarnet] = useState(null)
+  const [rapportDefi, setRapportDefi] = useState(null)
+  const [defi, setDefi] = useState(null)
   const [butinMer, setButinMer] = useState(null)
   const [dialogue, setDialogue] = useState(null)
   const [reglages, setReglages] = useState(false)
@@ -46,11 +49,11 @@ export default function App() {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2900)
   }, [])
 
-  // Le temps qui passe : fin des chantiers
+  // Le temps qui passe : fin des chantiers du village
   useEffect(() => {
     const id = setInterval(() => {
       const cur = sRef.current
-      if (!cur?.camp?.chantier || Date.now() < cur.camp.chantier.fin) return
+      if (!cur?.camp?.chantiers?.some((c) => Date.now() >= c.fin)) return
       const notes = maj((d) => G.tic(d))
       notes.forEach((n) => toast('🏗️ ' + n))
       son('niveau')
@@ -78,30 +81,70 @@ export default function App() {
   function lancerCombat(contexte) {
     const cur = sRef.current
     if (!G.herosPourCombat(cur).some((h) => h.pv > 0)) {
-      toast('Vos héros sont K.O. : reposez-vous d\'abord !')
+      toast('Vos héros sont K.O. : soignez-les d\'abord !')
       return
     }
-    const v = cur.voyage ? VILLES[cur.voyage.vers] : G.villeCourante(cur)
-    const arene = contexte === 'arene'
     setRapport(null)
+    const v = VILLES[cur.ville]
+    let ennemis
+    let fond = v.zone.image
+    let titre = null
+    let boss = false
+    if (contexte.type === 'parcours') {
+      const c = G.caseCourante(cur, contexte.cle)
+      if (!c || !['combat', 'elite', 'champion'].includes(c.t)) return
+      ennemis = G.ennemisCase(cur, contexte.cle)
+      if (contexte.cle === 'route') fond = VOYAGES[`${cur.voyage.de}>${cur.voyage.vers}`].image
+      if (c.t === 'champion') {
+        boss = true
+        fond = v.image
+        titre = `${v.arene.nom} : le champion vous attend !`
+      } else if (c.t === 'elite') titre = `Un élite barre la route : ${MONSTRES[c.ennemis.find((e) => e[2])[0]].elite} !`
+    } else ennemis = G.rencontreSauvage(cur)
+    setCombat({ cle: Math.random(), contexte, heros: G.herosPourCombat(cur), ennemis, boss, sac: cur.sac, fond, titre })
+  }
+
+  function lancerDefi(d) {
+    const cur = sRef.current
+    const r = REGLES_DEFI[d.regle]
+    setDefi(null)
     setCombat({
       cle: Math.random(),
-      contexte,
-      heros: G.herosPourCombat(cur),
-      ennemis: arene ? G.rencontreArene(cur) : G.rencontreSauvage(cur),
-      boss: arene,
+      contexte: { type: 'defi', defi: d },
+      heros: G.herosPourDefi(cur),
+      ennemis: d.ennemis,
+      boss: true,
       sac: cur.sac,
-      fond: arene ? v.image : v.zone.image,
-      titre: arene ? `${v.arene.nom} : le champion vous attend !` : null,
+      fond: VILLES[d.ville].image,
+      titre: 'Défi du jour : en garde !',
+      regles: { [d.regle]: true },
+      bandeau: `${r.icone} ${r.nom} : ${r.desc}`,
     })
   }
 
   function finCombat(bilan) {
     const contexte = combat.contexte
-    const r = maj((d) => G.finCombat(d, bilan, contexte === 'arene' ? 'arene' : 'sauvage'))
-    if (r.niveaux.length) son('niveau')
     setCombat(null)
-    setRapport({ ...r, contexte })
+    if (contexte.type === 'defi') {
+      const r = maj((d) => G.finDefi(d, bilan, contexte.defi))
+      son(r.issue === 'victoire' ? 'piece' : 'clic')
+      setRapportDefi(r)
+      return
+    }
+    const r = maj((d) => G.finCombat(d, bilan, contexte))
+    if (r.niveaux.length) son('niveau')
+    setRapport(r)
+  }
+
+  // Après un rapport : enchaîner sur la case suivante si c'est un combat
+  function suiteRapport(r) {
+    if (r.issue !== 'victoire' || r.eclat) return null
+    if (r.contexte?.type === 'chasse') return () => lancerCombat(r.contexte)
+    if (r.contexte?.type === 'parcours') {
+      const c = G.caseCourante(sRef.current, r.contexte.cle)
+      if (c && (c.t === 'combat' || c.t === 'elite')) return () => lancerCombat(r.contexte)
+    }
+    return null
   }
 
   function recupererExpedition() {
@@ -110,7 +153,7 @@ export default function App() {
   }
 
   function finAventure() {
-    setDialogue({ repliques: FIN_V1, fin: () => maj((d) => { d.finVue = true }) })
+    setDialogue({ repliques: FIN, fin: () => maj((d) => { d.finVue = true }) })
   }
 
   if (ecran === 'titre' || !s) {
@@ -122,35 +165,37 @@ export default function App() {
   }
 
   const campAlerte =
-    ['mine', 'entrainement', 'herboristerie'].some((k) => G.enStock(s, k) >= BATIMENTS[k].capacite[s.camp[k].niveau] * 0.6) ? '!' : null
-  const voyageFini = s.voyage && G.voyageTermine(s)
+    ['mine', 'herboristerie'].some((k) => s.camp[k].niveau && G.enStock(s, k) >= BATIMENTS[k].capacite[s.camp[k].niveau] * 0.6) ? '!' : null
+  // Sur le terrain (progression non sauvegardée par un point de passage), on reste dans le parcours
+  const surLeTerrain = !s.voyage && G.progressionEnJeu(s, s.ville) > 0
 
   let contenu
   if (onglet === 'ville') {
     if (s.voyage) {
       contenu = (
-        <Voyage
+        <Parcours
           s={s}
           maj={maj}
           toast={toast}
+          cle="route"
           lancerCombat={lancerCombat}
-          onExpedition={recupererExpedition}
           onArrivee={() => {
             const r = maj((d) => G.arriver(d))
-            if (r) setCarnet(r)
+            if (r) {
+              setSousEcran(null)
+              toast(`🏰 Bienvenue à ${VILLES[r.ville].nom} ! L'équipe se repose.`)
+            }
           }}
         />
       )
+    } else if (sousEcran === 'parcours' || surLeTerrain) {
+      contenu = <Parcours s={s} maj={maj} toast={toast} cle={s.ville} lancerCombat={lancerCombat} retour={() => setSousEcran(null)} />
     } else if (sousEcran === 'boutique') {
       contenu = <Boutique s={s} maj={maj} toast={toast} retour={() => setSousEcran(null)} />
-    } else if (sousEcran === 'boulangerie') {
-      contenu = <Boulangerie s={s} maj={maj} toast={toast} retour={() => setSousEcran(null)} />
     } else if (sousEcran === 'maitre') {
       contenu = <Maitre s={s} maj={maj} toast={toast} retour={() => setSousEcran(null)} />
     } else if (sousEcran === 'port') {
       contenu = <Port s={s} maj={maj} toast={toast} retour={() => setSousEcran(null)} onExpedition={recupererExpedition} />
-    } else if (sousEcran === 'enchanteur') {
-      contenu = <Enchanteur s={s} maj={maj} toast={toast} retour={() => setSousEcran(null)} />
     } else {
       contenu = (
         <Ville
@@ -161,6 +206,7 @@ export default function App() {
           aller={setSousEcran}
           finAventure={finAventure}
           onExpedition={recupererExpedition}
+          ouvrirDefi={() => setDefi(G.defiDuJour(s))}
           parler={(lignes) => setDialogue({ repliques: lignes })}
         />
       )
@@ -184,9 +230,9 @@ export default function App() {
 
       <nav className="nav-bas">
         {[
-          ['ville', s.voyage ? '🧭' : '🏰', s.voyage ? 'Voyage' : 'Ville', voyageFini ? '!' : null],
+          ['ville', s.voyage ? '🧭' : '🏰', s.voyage ? 'Route' : 'Ville', null],
           ['equipe', '🛡️', 'Équipe', null],
-          ['camp', '⛺', 'Campement', campAlerte],
+          ['camp', '🏘️', 'Village', campAlerte],
           ['bestiaire', '📖', 'Bestiaire', null],
         ].map(([k, ico, nom, alerte]) => (
           <button
@@ -195,6 +241,7 @@ export default function App() {
             onClick={() => {
               son('clic')
               setOnglet(k)
+              // Sur le terrain, l'onglet Ville ramène au parcours (voir surLeTerrain)
               if (k === 'ville') setSousEcran(null)
             }}
           >
@@ -214,8 +261,10 @@ export default function App() {
           sac={combat.sac}
           fond={combat.fond}
           titre={combat.titre}
-          aide={!s.aides?.combat}
-          onAideVue={() => maj((d) => { d.aides = { ...(d.aides || {}), combat: true } })}
+          regles={combat.regles}
+          bandeau={combat.bandeau}
+          aide={!s.aides?.combat3}
+          onAideVue={() => maj((d) => { d.aides = { ...(d.aides || {}), combat3: true } })}
           onFin={finCombat}
         />
       )}
@@ -223,12 +272,31 @@ export default function App() {
       {rapport && (
         <Rapport
           r={rapport}
-          onFermer={() => setRapport(null)}
-          onContinuer={rapport.contexte !== 'arene' ? () => lancerCombat(rapport.contexte) : null}
+          onFermer={() => {
+            setRapport(null)
+            // Champion battu : retour en ville
+            if (rapport.eclat) setSousEcran(null)
+          }}
+          onContinuer={suiteRapport(rapport)}
         />
       )}
-      {carnet && <Carnet r={carnet} onFermer={() => setCarnet(null)} />}
+      {rapportDefi && <RapportDefi r={rapportDefi} onFermer={() => setRapportDefi(null)} />}
+      {defi && <FicheDefi d={defi} onFermer={() => setDefi(null)} onJouer={() => lancerDefi(defi)} />}
       {butinMer && <RetourExpedition r={butinMer} onFermer={() => setButinMer(null)} />}
+      {s.notesMigration && !dialogue && (
+        <Modale onFermer={() => maj((d) => { delete d.notesMigration })}>
+          <div className="bandeau">Nouvelle version !</div>
+          <ul className="liste-nouveautes">
+            <li>Les monstres <b>annoncent leurs attaques</b>. Champions et élites préparent un gros coup : Bastien peut l'interrompre.</li>
+            <li>Chaque zone est un <b>parcours</b> de 6 cases jusqu'au champion, avec un feu de camp.</li>
+            <li>Les routes se jouent, <b>sans attente</b>.</li>
+            <li>Le campement devient un <b>village</b> à construire : château, caserne, remparts, bibliothèque…</li>
+            <li>Héros spécialisés, armes légendaires à pouvoir, et un <b>défi du jour</b> après le premier champion.</li>
+          </ul>
+          {s.notesMigration.map((n) => <p key={n} className="discret">{n}</p>)}
+          <button className="btn vert" onClick={() => maj((d) => { delete d.notesMigration })}>C'est parti !</button>
+        </Modale>
+      )}
       {dialogue && (
         <Dialogue
           repliques={dialogue.repliques}
@@ -245,12 +313,13 @@ export default function App() {
           <div className="pile">
             <button className="btn bois petit" onClick={() => setSon(basculerSon())}>Son : {sonActif() ? 'activé' : 'coupé'}</button>
             <button className="btn bois petit" onClick={() => { setReglages(false); setDialogue({ repliques: INTRO }) }}>Revoir l'introduction</button>
+            <button className="btn bois petit" onClick={() => { setReglages(false); maj((d) => { d.aides = { ...(d.aides || {}), combat3: false } }) }}>Revoir l'aide au combat</button>
             <button className="btn bois petit" onClick={() => { setReglages(false); setEcran('titre') }}>Écran titre</button>
             <p className="discret" style={{ margin: 0 }}>
               La partie est sauvegardée automatiquement dans ce navigateur. Pour recommencer à zéro, passez par l'écran titre.
             </p>
             <p className="discret" style={{ margin: 0 }}>
-              {s.stats.victoires} victoires · {s.stats.defaites} défaites · version 0.2
+              {s.stats.victoires} victoires · {s.stats.defaites} défaites · version 0.3
             </p>
             <button className="btn vert petit" onClick={() => setReglages(false)}>Fermer</button>
           </div>
@@ -263,5 +332,35 @@ export default function App() {
         ))}
       </div>
     </div>
+  )
+}
+
+// Présentation du défi du jour
+function FicheDefi({ d, onFermer, onJouer }) {
+  const boss = MONSTRES[VILLES[d.ville].arene.boss]
+  const r = REGLES_DEFI[d.regle]
+  return (
+    <Modale onFermer={onFermer}>
+      <div className="bandeau">Défi du jour</div>
+      <div className="ligne" style={{ alignItems: 'center' }}>
+        <img src={art(boss.image)} alt="" style={{ width: 96, height: 96, objectFit: 'contain', flex: 'none' }} />
+        <div>
+          <div className="titre" style={{ fontSize: 19 }}>{boss.nom}</div>
+          <div className="discret">Niveau {d.ennemis[0].niveau} · {VILLES[d.ville].arene.nom}</div>
+        </div>
+      </div>
+      <div className="regle-defi">
+        <b>{r.icone} {r.nom}</b>
+        <span>{r.desc}</span>
+      </div>
+      <p className="discret">
+        Vos héros partent en pleine forme et le défi ne coûte rien : ni PV, ni objets. Gagnez en un minimum de tours pour battre votre record. Prime du jour : {d.prime} or, à la première victoire.
+      </p>
+      {d.record && <p style={{ margin: '0 0 8px' }}>🏆 Record du jour : <b>{d.record.meilleur} tours</b></p>}
+      <div className="grille2">
+        <button className="btn bois petit" onClick={onFermer}>Plus tard</button>
+        <button className="btn violet petit" onClick={onJouer}>Relever le défi</button>
+      </div>
+    </Modale>
   )
 }

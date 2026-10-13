@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { TYPES } from '../data/types.js'
-import { RARETES, BASES, NOMS_STATS } from '../data/items.js'
+import { RARETES, BASES, NOMS_STATS, POUVOIRS } from '../data/items.js'
 import { PNJ } from '../data/world.js'
 import { statsObjet } from '../engine/loot.js'
 
@@ -75,6 +75,7 @@ export function Objet({ o, compare, children, onClick }) {
             </span>
           ))}
         </div>
+        {o.pouvoir && <div className="pouvoir">★ {POUVOIRS[o.pouvoir].desc}</div>}
       </div>
       {children && <div className="cote">{children}</div>}
     </Tag>

@@ -1,5 +1,5 @@
 // Cache simple : le jeu reste jouable hors ligne une fois chargé.
-const CACHE = 'rdp-v1'
+const CACHE = 'rdp-v3'
 self.addEventListener('install', (e) => self.skipWaiting())
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()))

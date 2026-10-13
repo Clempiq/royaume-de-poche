@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { CLASSES, ORDRE_EQUIPE, NIVEAU_MAX, MAX_CAPACITES, xpPourNiveau } from '../data/heroes.js'
+import { CLASSES, ORDRE_EQUIPE, NIVEAU_MAX, xpPourNiveau } from '../data/heroes.js'
 import { TYPES } from '../data/types.js'
 import { VILLES } from '../data/world.js'
 import { CONSOMMABLES, EMPLACEMENTS, RARETES } from '../data/items.js'
 import * as G from '../engine/game.js'
-import { statsHeros } from '../engine/heroes.js'
+import { statsHeros, maxCapacites } from '../engine/heroes.js'
 import { prixVente } from '../engine/loot.js'
 import { Barre, Modale, Objet, Type, art } from './commun.jsx'
 
@@ -35,7 +35,7 @@ function FicheHeros({ classe, s, maj, toast }) {
   const [choixSlot, setChoixSlot] = useState(null)
   const h = s.heros[classe]
   const c = CLASSES[classe]
-  const st = statsHeros(h, s.inventaire)
+  const st = statsHeros(h, s.inventaire, s.camp)
   const xpMax = xpPourNiveau(h.niveau)
   const consommables = Object.entries(s.sac).filter(([id, n]) => n > 0 && (CONSOMMABLES[id].effet.pv || CONSOMMABLES[id].effet.pm || CONSOMMABLES[id].effet.reanime))
 
@@ -47,6 +47,7 @@ function FicheHeros({ classe, s, maj, toast }) {
           <div style={{ flex: 1 }}>
             <h2 className="titre" style={{ fontSize: 24 }}>{c.prenom}</h2>
             <div className="discret">{c.nom} · {c.role}</div>
+            <div className="ligne" style={{ gap: 4, marginTop: 3 }}>{c.elements.map((e) => <Type key={e} t={e} />)}</div>
             <div style={{ marginTop: 6, fontFamily: 'var(--titre)' }}>Niveau {h.niveau}{h.niveau >= NIVEAU_MAX ? ' (max)' : ''}</div>
             {h.niveau < NIVEAU_MAX && <Barre val={h.xp} max={xpMax} sorte="xp" texte={`${h.xp} / ${xpMax} XP`} />}
             <div style={{ marginTop: 6 }}>
@@ -113,13 +114,13 @@ function FicheHeros({ classe, s, maj, toast }) {
       <div className="panneau">
         <div className="ligne">
           <h3 className="titre" style={{ fontSize: 18 }}>Capacités au combat</h3>
-          <span className="discret" style={{ marginLeft: 'auto' }}>{h.capacites.length} / {MAX_CAPACITES}</span>
+          <span className="discret" style={{ marginLeft: 'auto' }}>{h.capacites.length} / {maxCapacites(s.camp)}</span>
         </div>
         <p className="discret" style={{ margin: '2px 0 6px' }}>Touchez une capacité connue pour l'emporter ou la laisser. Variez les types pour avoir une réponse à chaque monstre.</p>
         {c.competences.map((k) => {
           const connue = h.connues.includes(k.id)
           const equipee = h.capacites.includes(k.id)
-          const plein = h.capacites.length >= MAX_CAPACITES
+          const plein = h.capacites.length >= maxCapacites(s.camp)
           return (
             <button
               key={k.id}
@@ -140,7 +141,7 @@ function FicheHeros({ classe, s, maj, toast }) {
                     {connue ? `${k.cout} PM` : k.niveau ? `niv. ${k.niveau}` : `Maître de ${VILLES[k.maitre].nom}`}
                   </span>
                 </div>
-                <div className="d">{k.puissance ? `Puissance ${k.puissance}${k.cible === 'ennemis' ? ', tous les ennemis' : ''} · ` : ''}{k.desc}</div>
+                <div className="d">{k.puissance ? `Puissance ${k.puissance}${k.cible === 'ennemis' ? ', tous les ennemis' : ''} · ` : ''}{k.recharge ? `Recharge ${k.recharge} tours · ` : ''}{k.desc}</div>
               </div>
             </button>
           )

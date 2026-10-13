@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { VILLES, PNJ, DIALOGUES, ORDRE_VILLES, BATIMENTS_VILLE, REPAS, EXPEDITIONS } from '../data/world.js'
+import { son } from './sons.js'
+import { VILLES, PNJ, DIALOGUES, ORDRE_VILLES, BATIMENTS_VILLE, REPAS, EXPEDITIONS, DUREE_REPAS, REGLES_DEFI } from '../data/world.js'
 import { MONSTRES } from '../data/monsters.js'
 import { CLASSES, ORDRE_EQUIPE } from '../data/heroes.js'
 import * as G from '../engine/game.js'
 import { statsHeros } from '../engine/heroes.js'
-import { formatDuree, maintenant, vitesse } from '../engine/util.js'
+import { formatDuree, maintenant } from '../engine/util.js'
 import { Barre, Modale, art, useHorloge } from './commun.jsx'
 
 export function EquipeMini({ s }) {
@@ -12,7 +13,7 @@ export function EquipeMini({ s }) {
     <div className="equipe-mini">
       {ORDRE_EQUIPE.map((c) => {
         const h = s.heros[c]
-        const st = statsHeros(h, s.inventaire)
+        const st = statsHeros(h, s.inventaire, s.camp)
         return (
           <div key={c} className="mini">
             <div className="nom">
@@ -38,17 +39,19 @@ export function Eclats({ s }) {
   )
 }
 
-export default function Ville({ s, maj, lancerCombat, parler, aller, toast, finAventure, onExpedition }) {
+export default function Ville({ s, maj, lancerCombat, parler, aller, toast, finAventure, ouvrirDefi, onExpedition }) {
   const [confirmeVoyage, setConfirmeVoyage] = useState(false)
+  const [auberge, setAuberge] = useState(false)
   const v = G.villeCourante(s)
   const pnj = PNJ[v.pnj]
   const battue = G.areneBattue(s)
   const lignes = DIALOGUES[v.pnj][battue ? 'apres' : 'avant']
-  const boss = MONSTRES[v.arene.boss]
   const voyage = G.infoVoyage(s)
-  const enForme = G.equipeEnForme(s)
-  const moyenne = Math.round(ORDRE_EQUIPE.reduce((t, c) => t + s.heros[c].niveau, 0) / 3)
   const toutFini = s.eclats.length === ORDRE_VILLES.length
+  const c = G.caseCourante(s, s.ville)
+  const p = G.etatParcours(s, s.ville)
+  const defi = G.defiDuJour(s)
+  const prochaine = !c ? 'Zone nettoyée, champion vaincu 💎' : c.t === 'champion' ? `Le champion ${MONSTRES[v.arene.boss].nom} vous attend !` : c.t === 'feu' ? 'Prochaine étape : le feu de camp' : `Case ${c.index + 1} sur 6 · ${c.t === 'elite' ? 'un élite vous attend' : 'combat'}`
 
   return (
     <div className="ecran">
@@ -71,38 +74,31 @@ export default function Ville({ s, maj, lancerCombat, parler, aller, toast, finA
 
         <EquipeMini s={s} />
 
-        <BandeauxInfos s={s} maj={maj} toast={toast} onExpedition={onExpedition} />
+        <BandeauxInfos s={s} onExpedition={onExpedition} />
 
         <div className="place">
-          <button className="batisse large vert" onClick={() => lancerCombat('sauvage')}>
-            <img src={art('t-porte')} alt="" />
+          <button className={`batisse large ${c ? (c.t === 'champion' ? 'rouge' : 'vert') : ''}`} onClick={() => aller('parcours')}>
+            <img src={art(c?.t === 'champion' ? 't-arene' : 't-porte')} alt="" />
             <span>
-              <span className="n">Explorer : {v.zone.nom}</span>
+              <span className="n">{c ? `Expédition : ${v.zone.nom}` : `${v.zone.nom} 💎`}</span>
               <br />
-              <span className="s">Monstres de niveau {v.zone.niveaux[0]} à {v.zone.niveaux[1]}</span>
+              <span className="s">{prochaine}</span>
+              {c && p.index > 0 && <span className="progression-mini">{[0, 1, 2, 3, 4, 5].map((i) => <i key={i} className={i < p.index ? 'fait' : i === p.index ? 'ici' : ''} />)}</span>}
             </span>
           </button>
-          <button className={`batisse large ${battue ? '' : 'rouge'}`} disabled={battue} onClick={() => lancerCombat('arene')}>
-            <img src={art('t-arene')} alt="" />
-            <span>
-              <span className="n">{battue ? 'Arène gagnée 💎' : `Arène : ${boss.nom}`}</span>
-              <br />
-              <span className="s">
-                {battue ? `L'éclat de ${boss.nom} est à vous` : `Niveau ${v.arene.niveau} · conseillé : héros niv. ${v.arene.conseil} ${moyenne < v.arene.conseil ? '⚠️' : '✓'}`}
+          {defi && (
+            <button className="batisse large violet" onClick={ouvrirDefi}>
+              <img src={art(MONSTRES[VILLES[defi.ville].arene.boss].image)} alt="" />
+              <span>
+                <span className="n">Défi du jour {REGLES_DEFI[defi.regle].icone}</span>
+                <br />
+                <span className="s">{defi.record ? `Votre record : ${defi.record.meilleur} tours` : `${REGLES_DEFI[defi.regle].nom} · prime de ${defi.prime} or`}</span>
               </span>
-            </span>
-          </button>
+            </button>
+          )}
           <Batisse image="t-boutique" nom="Boutique" sous="Potions et équipement" onClick={() => aller('boutique')} />
-          <Batisse
-            image="t-auberge"
-            nom="Auberge"
-            sous={enForme ? 'Déjà en forme' : 'Soins gratuits'}
-            disabled={enForme}
-            onClick={() => {
-              maj((d) => G.seReposer(d))
-              toast('L\'équipe a bien dormi : PV et PM au maximum !')
-            }}
-          />
+          <Batisse image="t-auberge" nom="Auberge" sous={s.repas ? `${REPAS[s.repas.id].icone} repas encore ${s.repas.combats} combats` : 'Repos et repas offerts'} onClick={() => setAuberge(true)} />
+          <Batisse image="t-porte" nom="Chasse libre" sous="S'entraîner, butin réduit" onClick={() => lancerCombat({ type: 'chasse' })} />
           {v.batiments.map((k) => (
             <Batisse key={k} image={BATIMENTS_VILLE[k].image} nom={BATIMENTS_VILLE[k].court} sous={sousTitre(k, s)} badge={k === 'port' && G.expeditionRentree(s) ? '!' : null} onClick={() => aller(k)} />
           ))}
@@ -110,9 +106,9 @@ export default function Ville({ s, maj, lancerCombat, parler, aller, toast, finA
             <button className={`batisse large ${battue ? 'violet' : ''}`} disabled={!battue} onClick={() => setConfirmeVoyage(true)}>
               <img src={art('t-voyage')} alt="" />
               <span>
-                <span className="n">Voyager vers {VILLES[voyage.vers].nom}</span>
+                <span className="n">Partir vers {VILLES[voyage.vers].nom}</span>
                 <br />
-                <span className="s">{battue ? `${voyage.nom} · ${dureeTexte(voyage.minutes)} de marche` : 'Battez d\'abord le champion de l\'arène'}</span>
+                <span className="s">{battue ? `Par le ${voyage.nom}` : 'Battez d\'abord le champion de l\'arène'}</span>
               </span>
             </button>
           )}
@@ -120,24 +116,22 @@ export default function Ville({ s, maj, lancerCombat, parler, aller, toast, finA
             <button className="batisse large violet" onClick={finAventure}>
               <img src={art('p-roi')} alt="" />
               <span>
-                <span className="n">Rapporter les éclats au roi</span>
+                <span className="n">{s.finVue ? 'Revoir la fin de l\'aventure' : 'Rapporter les éclats au roi'}</span>
               </span>
             </button>
           )}
         </div>
       </div>
 
+      {auberge && <Auberge s={s} maj={maj} toast={toast} onFermer={() => setAuberge(false)} />}
+
       {confirmeVoyage && (
         <Modale onFermer={() => setConfirmeVoyage(false)}>
           <div className="bandeau">En route ?</div>
           <p style={{ marginTop: 0 }}>
-            Le trajet vers <b>{VILLES[voyage.vers].nom}</b> par le {voyage.nom} dure <b>{dureeTexte(voyage.minutes)}</b>.
+            Le <b>{voyage.nom}</b> mène à <b>{VILLES[voyage.vers].nom}</b>. Comme une zone : quelques combats, un feu de camp, un élite, et vous y êtes.
           </p>
-          <p className="discret">
-            Pendant le voyage, vous pouvez fermer le jeu : vos héros avancent tout seuls. Vous pourrez combattre les monstres de la route,
-            gérer le campement et votre équipement. À l'arrivée, vous découvrirez ce qui s'est passé en chemin.
-          </p>
-          <p className="discret">La boutique et l'arène de {v.nom} ne seront plus accessibles.</p>
+          <p className="discret">Passez à l'auberge avant de partir. Une fois en route, la boutique et l'auberge de {v.nom} ne sont plus accessibles.</p>
           <div className="grille2">
             <button className="btn bois petit" onClick={() => setConfirmeVoyage(false)}>Pas encore</button>
             <button
@@ -156,6 +150,57 @@ export default function Ville({ s, maj, lancerCombat, parler, aller, toast, finA
   )
 }
 
+// L'auberge : repos complet et un repas offert, au choix
+function Auberge({ s, maj, toast, onFermer }) {
+  const enForme = G.equipeEnForme(s)
+  return (
+    <Modale onFermer={onFermer}>
+      <div className="bandeau">Auberge</div>
+      <p style={{ marginTop: 0 }}>Un bon lit pour les héros, offert par la maison. Et un repas au choix, qui renforce l'équipe pendant {DUREE_REPAS} combats.</p>
+      <div className="pile" style={{ gap: 8 }}>
+        {Object.entries(REPAS).map(([id, r]) => (
+          <button
+            key={id}
+            className={`choix-repas ${s.repas?.id === id ? 'actif' : ''}`}
+            onClick={() => {
+              maj((d) => {
+                G.seReposer(d)
+                G.prendreRepas(d, id)
+              })
+              son('soin')
+              toast(`${r.icone} Bien dormi, bien mangé : ${r.desc} pour ${DUREE_REPAS} combats !`)
+              onFermer()
+            }}
+          >
+            <span style={{ fontSize: 28 }}>{r.icone}</span>
+            <span style={{ flex: 1, textAlign: 'left' }}>
+              <b>{r.nom}</b>
+              <br />
+              <span className="discret">{r.desc}</span>
+            </span>
+            <span className="porte">Offert</span>
+          </button>
+        ))}
+      </div>
+      <div className="grille2" style={{ marginTop: 10 }}>
+        <button className="btn bois petit" onClick={onFermer}>Fermer</button>
+        <button
+          className="btn vert petit"
+          disabled={enForme}
+          onClick={() => {
+            maj((d) => G.seReposer(d))
+            son('soin')
+            toast('L\'équipe a bien dormi : PV et PM au maximum !')
+            onFermer()
+          }}
+        >
+          {enForme ? 'Déjà en forme' : 'Dormir seulement'}
+        </button>
+      </div>
+    </Modale>
+  )
+}
+
 function Batisse({ image, nom, sous, onClick, disabled, badge }) {
   return (
     <button className="batisse" onClick={onClick} disabled={disabled}>
@@ -168,10 +213,8 @@ function Batisse({ image, nom, sous, onClick, disabled, badge }) {
 }
 
 function sousTitre(k, s) {
-  if (k === 'boulangerie') return s.repas ? `${REPAS[s.repas.id].icone} encore ${s.repas.combats} combats` : 'Repas qui renforcent'
   if (k === 'maitre') return 'Nouvelles capacités'
   if (k === 'port') return s.expedition ? (G.expeditionRentree(s) ? 'Bateau rentré !' : 'Bateau en mer') : 'Expéditions en mer'
-  if (k === 'enchanteur') return 'Relancer les bonus'
   return ''
 }
 
@@ -206,86 +249,3 @@ export function BandeauxInfos({ s, onExpedition }) {
   return items.length ? <>{items}</> : null
 }
 
-function dureeTexte(min) {
-  const m = min / vitesse()
-  if (m >= 60) return `${Math.round((m / 60) * 10) / 10} h`.replace('.', ',')
-  if (m >= 1) return `${Math.round(m)} min`
-  return `${Math.round(m * 60)} s`
-}
-
-export function Voyage({ s, maj, lancerCombat, toast, onArrivee, onExpedition }) {
-  useHorloge(1000)
-  const v = s.voyage
-  const total = v.fin - v.debut
-  const reste = Math.max(0, v.fin - maintenant())
-  const p = total > 0 ? 1 - reste / total : 1
-  const fini = reste <= 0
-  const dest = VILLES[v.vers]
-  const enForme = G.equipeEnForme(s)
-  return (
-    <div className="ecran">
-      <div className="fond" style={{ backgroundImage: `url(${art('camp')})` }} />
-      <div className="contenu">
-        <div className="ville-tete">
-          <h1>En route</h1>
-          <p>
-            De {VILLES[v.de].nom} à {dest.nom}
-          </p>
-        </div>
-        <div className="panneau">
-          <div className="route">
-            <div className="chemin" />
-            <div className="fait" style={{ width: `calc((100% - 36px) * ${p})` }} />
-            <div className="etape" style={{ left: 0 }}>🏠</div>
-            <div className="etape" style={{ right: 0 }}>🏰</div>
-            <div className="equipe" style={{ left: `calc(18px + (100% - 36px) * ${p})` }}>🚶</div>
-          </div>
-          {fini ? (
-            <div className="chrono" style={{ color: 'var(--vert-fonce)' }}>Arrivés !</div>
-          ) : (
-            <>
-              <div className="chrono">{formatDuree(reste)}</div>
-              <p className="discret" style={{ textAlign: 'center', margin: '2px 0 0' }}>
-                Vos héros marchent, même jeu fermé. Revenez plus tard !
-              </p>
-            </>
-          )}
-          {vitesse() > 1 && <p className="discret" style={{ textAlign: 'center' }}>Mode test : temps ×{vitesse()}</p>}
-        </div>
-
-        <div style={{ height: 12 }} />
-        <BandeauxInfos s={s} onExpedition={onExpedition} />
-        <EquipeMini s={s} />
-
-        <div className="pile">
-          {fini && (
-            <button className="btn vert" onClick={onArrivee}>
-              <span className="ico">🏰</span> Entrer dans {dest.nom}
-            </button>
-          )}
-          <button className="btn rouge gauche" onClick={() => lancerCombat('route')}>
-            <span className="ico">⚔️</span>
-            <span className="col">
-              Affronter les monstres de la route
-              <span className="sous">Aperçu des monstres de {dest.zone.nom}</span>
-            </span>
-          </button>
-          <button
-            className="btn bois gauche"
-            disabled={enForme}
-            onClick={() => {
-              maj((d) => G.seReposer(d))
-              toast('Bivouac au coin du feu : l\'équipe est reposée.')
-            }}
-          >
-            <span className="ico">🔥</span>
-            <span className="col">
-              Bivouac
-              <span className="sous">{enForme ? 'L\'équipe est en forme' : 'Se reposer au coin du feu'}</span>
-            </span>
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}

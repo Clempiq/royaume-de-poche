@@ -54,6 +54,15 @@ export const AFFIXES = [
   { id: 'roche', elem: 'roche', suffixe: 'du roc', val: (n) => 10 + n, armeSeulement: true },
 ]
 
+// Légendaires à pouvoir : une arme légendaire de chaque héros change
+// sa façon de jouer, au lieu d'ajouter seulement des chiffres.
+export const POUVOIRS = {
+  contre: { nom: 'Lame du Contre', base: 'epee', desc: 'Quand une attaque ciblée touche Bastien, il riposte aussitôt (une fois par tour, pas sur une esquive).' },
+  echo: { nom: 'Sceptre de l\'Écho', base: 'sceptre', desc: 'La première capacité offensive de Lulu à chaque combat est lancée une seconde fois, gratuitement.' },
+  chasseur: { nom: 'Arc du Chasseur', base: 'arc', desc: 'Quand Pia met un ennemi K.O., elle rejoue aussitôt (une fois par tour).' },
+}
+export const POUVOIR_PAR_BASE = { epee: 'contre', sceptre: 'echo', arc: 'chasseur' }
+
 export const NOMS_STATS = {
   puiss: 'Puissance', pv: 'PV', pm: 'PM', atq: 'Attaque', mag: 'Magie', def: 'Défense', vit: 'Vitesse', crit: 'Critique',
 }

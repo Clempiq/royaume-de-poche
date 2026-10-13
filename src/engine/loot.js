@@ -1,4 +1,4 @@
-import { AFFIXES, BASES, RARETES, FORGE_MAX } from '../data/items.js'
+import { AFFIXES, BASES, RARETES, FORGE_MAX, POUVOIRS, POUVOIR_PAR_BASE } from '../data/items.js'
 import { tiragePondere } from './util.js'
 
 let compteur = 0
@@ -45,7 +45,9 @@ function tirerAffixes(o, rng) {
   const rar = RARETES[o.rarete]
   const pool = AFFIXES.filter((a) => (!a.armeSeulement || def.slot === 'arme' || def.slot === 'accessoire') && a.elem !== def.elem)
   const choisis = []
-  while (choisis.length < rar.affixes && pool.length) choisis.push(pool.splice(Math.floor(rng() * pool.length), 1)[0])
+  // Une arme à pouvoir a un bonus de moins : le pouvoir compte pour beaucoup
+  const nbAffixes = o.pouvoir ? rar.affixes - 1 : rar.affixes
+  while (choisis.length < nbAffixes && pool.length) choisis.push(pool.splice(Math.floor(rng() * pool.length), 1)[0])
   o.stats = {}
   for (const [k, v] of Object.entries(statsDeBase(o.base, o.niveau))) o.stats[k] = Math.round(v * rar.mult)
   o.elem = {}
@@ -56,7 +58,16 @@ function tirerAffixes(o, rng) {
     else o.stats[a.stat] = (o.stats[a.stat] || 0) + v
   }
   const palier = Math.min(3, Math.floor(o.niveau / 5))
-  o.nom = def.noms[palier] + (choisis[0] && !def.elem ? ' ' + choisis[0].suffixe : '')
+  o.nom = o.pouvoir ? POUVOIRS[o.pouvoir].nom : def.noms[palier] + (choisis[0] && !def.elem ? ' ' + choisis[0].suffixe : '')
+}
+
+// Donne son pouvoir à une arme légendaire (aussi pour les anciennes sauvegardes)
+export function donnerPouvoir(o) {
+  if (o.rarete === 'legendaire' && POUVOIR_PAR_BASE[o.base] && !o.pouvoir) {
+    o.pouvoir = POUVOIR_PAR_BASE[o.base]
+    o.nom = POUVOIRS[o.pouvoir].nom
+  }
+  return o
 }
 
 export function genererObjet({ niveau, rarete, base, rng = Math.random }) {
@@ -74,6 +85,7 @@ export function genererObjet({ niveau, rarete, base, rng = Math.random }) {
     forge: 0,
     prix: Math.round((10 + n * 6) * RARETES[r].prix),
   }
+  if (r === 'legendaire' && POUVOIR_PAR_BASE[b]) o.pouvoir = POUVOIR_PAR_BASE[b]
   tirerAffixes(o, rng)
   return o
 }

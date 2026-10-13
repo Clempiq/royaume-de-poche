@@ -1,11 +1,9 @@
-import { useState } from 'react'
-import { BATIMENTS_VILLE, REPAS, EXPEDITIONS, DUREE_REPAS } from '../data/world.js'
-import { CLASSES, MAX_CAPACITES } from '../data/heroes.js'
-import { RARETES } from '../data/items.js'
+import { BATIMENTS_VILLE, EXPEDITIONS } from '../data/world.js'
+import { CLASSES } from '../data/heroes.js'
+import { maxCapacites } from '../engine/heroes.js'
 import * as G from '../engine/game.js'
-import { coutEnchantement } from '../engine/loot.js'
 import { formatDuree, maintenant, vitesse } from '../engine/util.js'
-import { Objet, Type, art, useHorloge } from './commun.jsx'
+import { Type, art, useHorloge } from './commun.jsx'
 import { son } from './sons.js'
 
 function Cadre({ s, cle, children, retour }) {
@@ -30,50 +28,13 @@ function Cadre({ s, cle, children, retour }) {
   )
 }
 
-export function Boulangerie({ s, maj, toast, retour }) {
-  return (
-    <Cadre s={s} cle="boulangerie" retour={retour}>
-      <div className="panneau">
-        {s.repas && (
-          <p style={{ marginTop: 0 }}>
-            Repas actif : <b>{REPAS[s.repas.id].nom}</b>, encore {s.repas.combats} combat{s.repas.combats > 1 ? 's' : ''}. Un nouveau repas remplace l'actuel.
-          </p>
-        )}
-        <div className="pile" style={{ gap: 8 }}>
-          {Object.entries(REPAS).map(([id, r]) => (
-            <div key={id} className="competence" style={{ alignItems: 'center' }}>
-              <span style={{ fontSize: 30 }}>{r.icone}</span>
-              <div style={{ flex: 1 }}>
-                <div className="n">{r.nom}</div>
-                <div className="d">{r.desc} pour toute l'équipe, pendant {DUREE_REPAS} combats</div>
-              </div>
-              <button
-                className="btn petit"
-                style={{ width: 'auto', minHeight: 32, fontSize: 14 }}
-                disabled={s.or < r.prix}
-                onClick={() => {
-                  maj((d) => G.acheterRepas(d, id))
-                  son('piece')
-                  toast(`${r.nom} : l'équipe est requinquée !`)
-                }}
-              >
-                {r.prix} 🪙
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-    </Cadre>
-  )
-}
-
 export function Maitre({ s, maj, toast, retour }) {
   const liste = G.capacitesEnseignees(s.ville)
   return (
     <Cadre s={s} cle="maitre" retour={retour}>
       <div className="panneau">
         <p className="discret" style={{ marginTop: 0 }}>
-          Chaque maître enseigne des capacités différentes : visitez-les tous ! Une fois apprise, une capacité s'équipe dans l'écran Équipe ({MAX_CAPACITES} au maximum par héros).
+          Chaque maître enseigne des capacités différentes : des alternatives, jamais obligatoires. Une fois apprise, une capacité s'équipe dans l'écran Équipe ({maxCapacites(s.camp)} au maximum par héros). Chaque héros reste fidèle à ses éléments.
         </p>
         <div className="pile" style={{ gap: 8 }}>
           {liste.map((k) => {
@@ -101,7 +62,7 @@ export function Maitre({ s, maj, toast, retour }) {
                     onClick={() => {
                       maj((d) => G.apprendreCapacite(d, k.classe, k.id))
                       son('niveau')
-                      const plein = s.heros[k.classe].capacites.length >= MAX_CAPACITES
+                      const plein = s.heros[k.classe].capacites.length >= maxCapacites(s.camp)
                       toast(plein ? `${CLASSES[k.classe].prenom} connaît ${k.nom} : équipez-la dans Équipe.` : `${CLASSES[k.classe].prenom} apprend ${k.nom} !`)
                     }}
                   >
@@ -167,47 +128,3 @@ export function Port({ s, maj, toast, retour, onExpedition }) {
   )
 }
 
-export function Enchanteur({ s, maj, toast, retour }) {
-  const [dernier, setDernier] = useState(null)
-  const ordre = Object.keys(RARETES)
-  const objets = s.inventaire
-    .filter((o) => o.rarete !== 'commun')
-    .sort((a, b) => Number(G.estEquipe(s, b.id)) - Number(G.estEquipe(s, a.id)) || ordre.indexOf(b.rarete) - ordre.indexOf(a.rarete))
-  return (
-    <Cadre s={s} cle="enchanteur" retour={retour}>
-      <div className="panneau">
-        <p className="discret" style={{ marginTop: 0 }}>
-          Les bonus de l'objet sont tirés à nouveau. Sa base, sa rareté, son niveau et ses améliorations de forge sont conservés. Les objets communs n'ont pas de bonus à relancer.
-        </p>
-        {!objets.length && <p>Aucun objet rare ou mieux dans le sac pour l'instant.</p>}
-        <div className="pile" style={{ gap: 6 }}>
-          {objets.map((o) => {
-            const p = G.porteur(s, o.id)
-            const c = coutEnchantement(o)
-            return (
-              <div key={o.id} style={dernier === o.id ? { animation: 'zoom .35s' } : null}>
-                <Objet o={o}>
-                  {p && <span className="porte">{CLASSES[p].prenom}</span>}
-                  <button
-                    className="btn violet petit"
-                    style={{ width: 'auto', minHeight: 30, fontSize: 13 }}
-                    disabled={s.or < c}
-                    onClick={() => {
-                      maj((d) => G.enchanter(d, o.id))
-                      son('niveau')
-                      setDernier(null)
-                      setTimeout(() => setDernier(o.id), 10)
-                      toast('✨ Nouveaux bonus !')
-                    }}
-                  >
-                    ✨ {c} 🪙
-                  </button>
-                </Objet>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    </Cadre>
-  )
-}

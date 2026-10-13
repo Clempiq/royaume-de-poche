@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useRef, useState } from 'react'
-import { creerCombat, agir, phaseMonstres, fuir, bilanCombat, vivants, unite, capacite, attaqueDeBase, estimer, herosDisponibles } from '../engine/battle.js'
+import { creerCombat, agir, phaseMonstres, fuir, bilanCombat, vivants, unite, capacite, attaqueDeBase, estimer, herosDisponibles, decrireIntention, intentionsActives, recharge } from '../engine/battle.js'
 import { choisirAction } from '../engine/ia.js'
 import { CONSOMMABLES } from '../data/items.js'
 import { TYPES, efficacite } from '../data/types.js'
@@ -22,9 +22,9 @@ const ecrire = (k, v) => {
   }
 }
 
-export default function Combat({ heros, ennemis, boss, sac, fond, titre, aide, onAideVue, onFin }) {
+export default function Combat({ heros, ennemis, boss, sac, fond, titre, regles, bandeau, aide, onAideVue, onFin }) {
   const bRef = useRef(null)
-  if (!bRef.current) bRef.current = creerCombat({ heros, ennemis, boss, sac })
+  if (!bRef.current) bRef.current = creerCombat({ heros, ennemis, boss, sac, regles })
   const b = bRef.current
 
   // Ce qui est affiché (PV, PM, K.O.) avance au rythme des animations
@@ -44,6 +44,7 @@ export default function Combat({ heros, ennemis, boss, sac, fond, titre, aide, o
   const [auto, setAuto] = useState(() => lire('rdp-auto', false))
   const [rapide, setRapide] = useState(() => lire('rdp-rapide', false))
   const [voirAide, setVoirAide] = useState(aide)
+  const [tourMonstres, setTourMonstres] = useState(false)
   const rapideRef = useRef(rapide)
   rapideRef.current = rapide
   const autoRef = useRef(auto)
@@ -128,6 +129,8 @@ export default function Combat({ heros, ennemis, boss, sac, fond, titre, aide, o
         await pause(750)
       } else if (e.t === 'statut' || e.t === 'type' || e.t === 'texte') {
         setAnnonce({ grand: e.texte, petit: '' })
+        if (e.interruption) { afficherNombre(e.cible, 'Interrompu !', 'esquive'); son('critique') }
+        else if (e.pouvoir) son('niveau')
         rafraichir()
         await pause(600)
       }
@@ -143,7 +146,9 @@ export default function Combat({ heros, ennemis, boss, sac, fond, titre, aide, o
     setChoisi(null)
     setAnnonce({ grand: 'Au tour des monstres…', petit: '' })
     await pause(450)
+    setTourMonstres(true)
     await jouer(phaseMonstres(b))
+    setTourMonstres(false)
     if (b.fini) return terminer()
     if (!herosDisponibles(b).length) return suite()
     redonnerLaMain(true)
@@ -154,7 +159,7 @@ export default function Combat({ heros, ennemis, boss, sac, fond, titre, aide, o
     setChoisi((c) => (c && dispo.some((u) => u.uid === c) ? c : dispo[0]?.uid))
     setEnAttente(null)
     setPanneau('capacites')
-    if (nouveauTour) setAnnonce({ grand: `Tour ${b.tour} : à vous !`, petit: 'Vos héros récupèrent 2 PM.' })
+    if (nouveauTour) setAnnonce({ grand: `Tour ${b.tour} : à vous !`, petit: menaceDuTour(b) || '+2 PM pour chaque héros.' })
     else setAnnonce((a) => (a.grand.startsWith('Tour') || a.grand.includes('vous') ? a : { grand: `À qui le tour ?`, petit: `Encore ${dispo.length} héros à jouer` }))
     setMode('joueur')
   }
@@ -194,7 +199,7 @@ export default function Combat({ heros, ennemis, boss, sac, fond, titre, aide, o
       if (b.mode === 'lance') return
       b.mode = 'lance'
       redonnerLaMain()
-      setAnnonce({ grand: 'À vous de jouer !', petit: 'Choisissez un héros, une capacité, puis une cible.' })
+      setAnnonce({ grand: 'À vous de jouer !', petit: menaceDuTour(b) || 'Les bulles annoncent ce que vont faire les monstres.' })
     }, 900)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -268,6 +273,7 @@ export default function Combat({ heros, ennemis, boss, sac, fond, titre, aide, o
           <button className={`puce ${rapide ? 'on' : ''}`} onClick={() => { setRapide(!rapide); ecrire('rdp-rapide', !rapide) }}>⏩ ×2</button>
           <button className={`puce ${auto ? 'on' : ''}`} onClick={() => { setAuto(!auto); ecrire('rdp-auto', !auto) }}>🤖 Auto</button>
         </div>
+        {bandeau && <div className="bandeau-regle">{bandeau}</div>}
         <div className="annonce">
           <div>
             <div className="grand">{annonce.grand}</div>
@@ -295,6 +301,22 @@ export default function Combat({ heros, ennemis, boss, sac, fond, titre, aide, o
                 </div>
                 <Barre val={a.pv} max={u.max.pv} className={u.boss ? 'boss' : ''} texte={u.boss ? `${a.pv} / ${u.max.pv}` : null} />
                 <Statuts u={u} />
+                {!a.ko && mode !== 'fin' && !tourMonstres && (
+                  <div className="intentions">
+                    {intentionsActives(u).map((it, k) => {
+                      const d = decrireIntention(b, u, it)
+                      return (
+                        <div key={k} className={`intention ${d.danger ? 'danger' : ''}`}>
+                          <span className="ico">{d.icone}</span>
+                          <span className="txt">
+                            {d.texte}
+                            {d.sous && <small>{d.sous}</small>}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
               {est && (
                 <div className={`apercu ${est.mult > 1 ? 'super' : est.mult < 1 ? 'faible' : ''}`}>
@@ -302,6 +324,7 @@ export default function Combat({ heros, ennemis, boss, sac, fond, titre, aide, o
                   {est.mult > 1 && <span>Super efficace</span>}
                   {est.mult < 1 && <span>Peu efficace</span>}
                   {est.ko && <span>K.O. probable</span>}
+                  {est.expose && <span>Exposé +30 %</span>}
                 </div>
               )}
               <img key={touches[u.uid] || 0} className={touches[u.uid] ? 'touche' : ''} src={art(u.image)} alt={u.nom} draggable="false" />
@@ -324,6 +347,7 @@ export default function Combat({ heros, ennemis, boss, sac, fond, titre, aide, o
               onClick={() => toucherHeros(u.uid)}
             >
               {aJoue && !a.ko && <span className="coche">✓</span>}
+              {!tourMonstres && <Visee b={b} uid={u.uid} />}
               <div className="portrait">
                 <img key={touches[u.uid] || 0} className={touches[u.uid] ? 'touche' : ''} src={art(u.image)} alt={u.nom} draggable="false" />
               </div>
@@ -367,10 +391,10 @@ export default function Combat({ heros, ennemis, boss, sac, fond, titre, aide, o
           <div className="panneau">
             <h3 className="titre">Comment combattre</h3>
             <ol>
-              <li><b>Touchez un héros</b> pour le sélectionner. Vos 3 héros jouent chacun une fois, dans l'ordre que vous voulez.</li>
-              <li><b>Choisissez une capacité.</b> Sa couleur indique son type : 💥 signale une capacité super efficace contre un ennemi présent.</li>
-              <li><b>Touchez la cible.</b> Les dégâts estimés s'affichent avant de taper.</li>
-              <li>Quand vos héros ont joué, <b>les monstres répondent</b>. Chaque tour, vos héros récupèrent 2 PM.</li>
+              <li><b>Lisez les bulles des monstres</b> : elles annoncent leur prochaine action et leur cible. 🎯 sur un héros = il va être attaqué.</li>
+              <li><b>⚠️ Prépare…</b> : une grosse attaque arrive au tour suivant. Le <b>Coup de bouclier</b> de Bastien l'annule à coup sûr, sa <b>Provocation</b> la détourne sur lui.</li>
+              <li><b>Touchez un héros</b>, une capacité, puis la cible. Vos 3 héros jouent dans l'ordre que vous voulez : le <b>Brise-garde</b> de Bastien expose un ennemi (+30 % pour l'allié suivant).</li>
+              <li>Les couleurs indiquent les types : 💥 = super efficace. Chaque tour, vos héros récupèrent 2 PM.</li>
             </ol>
             <button className="btn vert petit">Compris !</button>
           </div>
@@ -389,12 +413,43 @@ export default function Combat({ heros, ennemis, boss, sac, fond, titre, aide, o
   )
 }
 
+// Message d'alerte quand un monstre prépare ou porte une grosse attaque
+function menaceDuTour(b) {
+  for (const m of vivants(b, 'm')) {
+    for (const it of intentionsActives(m)) {
+      if (it.genre === 'prepare') return `⚠️ ${m.nom} prépare ${it.att.nom} : interrompez-le !`
+      if (it.genre === 'frappe') return `💥 ${m.nom} va frapper ${unite(b, it.cible)?.nom || ''} très fort ce tour !`
+    }
+  }
+  return null
+}
+
+// Pastille sur la carte d'un héros : combien d'attaques le visent ce tour
+function Visee({ b, uid }) {
+  if (b.phase !== 'joueur' || b.fini) return null
+  let n = 0
+  let gros = false
+  for (const m of vivants(b, 'm')) {
+    for (const it of intentionsActives(m)) {
+      if (it.genre === 'prepare') continue
+      if (it.cible === uid || (!it.cible && it.att.cible === 'ennemis' && it.att.puissance)) {
+        n++
+        if (it.genre === 'frappe') gros = true
+      }
+    }
+  }
+  if (!n) return null
+  return <span className={`visee ${gros ? 'gros' : ''}`} title="Attaques prévues sur ce héros">{gros ? '💥' : '🎯'}{n > 1 ? `×${n}` : ''}</span>
+}
+
 function Statuts({ u }) {
   const s = []
   if (u.brulure > 0) s.push(['🔥', 'Brûlé'])
   if (u.etourdi) s.push(['💫', 'Étourdi'])
   if (u.provoc > 0) s.push(['😤', 'Provocation'])
   if (u.defend) s.push(['🛡️', 'En garde'])
+  if (u.expose) s.push(['🎯', 'Exposé'])
+  if (u.riposte > 0) s.push(['↩️', 'Riposte'])
   for (const x of u.buffs) s.push([x.stat === 'def' ? '🛡️⬆' : x.stat === 'atq' ? '⚔️⬆' : '✨⬆', 'Bonus'])
   return (
     <div className="statuts">
@@ -409,7 +464,8 @@ function TuileCapacite({ comp, acteur, ennemis, onClick, compacte }) {
   const t = comp.type ? TYPES[comp.type] : null
   const effic = comp.puissance && comp.type ? Math.max(...ennemis.map((e) => efficacite(comp.type, e.type))) : 1
   const toutesResistent = comp.puissance && comp.type && ennemis.every((e) => efficacite(comp.type, e.type) < 1)
-  const manque = (comp.cout || 0) > acteur.pm
+  const attente = comp.id ? recharge(acteur, comp.id) : 0
+  const manque = (comp.cout || 0) > acteur.pm || attente > 0
   const soutien = !comp.puissance
   return (
     <button
@@ -425,7 +481,7 @@ function TuileCapacite({ comp, acteur, ennemis, onClick, compacte }) {
       </span>
       <span className="bas">
         <span>{t ? `${t.icone} ${t.nom}` : comp.cible === 'allie' || comp.cible === 'allies' ? '💚 Soutien' : '✨ Soutien'}</span>
-        <span className="cout">{comp.cout ? `${comp.cout} PM` : 'Gratuit'}</span>
+        <span className="cout">{attente ? `⏳ ${attente} tour${attente > 1 ? 's' : ''}` : comp.cout ? `${comp.cout} PM` : 'Gratuit'}</span>
       </span>
     </button>
   )
