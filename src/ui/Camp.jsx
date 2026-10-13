@@ -46,7 +46,7 @@ export default function Camp({ s, maj, toast }) {
           return (
             <div key={k} className="panneau">
               <div className="batiment">
-                <div className="gros">{def.icone}</div>
+                <div className="gros">{def.image ? <img src={art(def.image)} alt="" style={{ width: 62, height: 58, objectFit: 'contain' }} /> : def.icone}</div>
                 <div className="info">
                   <h3 className="titre" style={{ fontSize: 18 }}>
                     {def.nom}
@@ -56,7 +56,7 @@ export default function Camp({ s, maj, toast }) {
                   {k !== 'forge' && (
                     <div style={{ marginTop: 6 }}>
                       <div className="discret">
-                        {def.production[b.niveau]} {k === 'mine' ? 'or' : 'XP par héros'} / heure · réserve max {cap}
+                        {def.production[b.niveau]} {k === 'mine' ? 'or' : k === 'herboristerie' ? 'potions' : 'XP par héros'} / heure · réserve max {cap}
                       </div>
                       <Barre val={stock} max={cap} sorte="xp" texte={`${stock} / ${cap}`} />
                     </div>
@@ -74,10 +74,10 @@ export default function Camp({ s, maj, toast }) {
                     onClick={() => {
                       const n = maj((d) => G.recolter(d, k))
                       son(k === 'mine' ? 'piece' : 'niveau')
-                      toast(k === 'mine' ? `+${n} or récolté !` : `+${n} XP pour chaque héros !`)
+                      toast(k === 'mine' ? `+${n} or récolté !` : k === 'herboristerie' ? `+${n} potions dans le sac !` : `+${n} XP pour chaque héros !`)
                     }}
                   >
-                    {k === 'mine' ? '🪙 Récolter' : '⭐ Récupérer l\'XP'}
+                    {k === 'mine' ? '🪙 Récolter' : k === 'herboristerie' ? '🧪 Récolter' : '⭐ Récupérer l\'XP'}
                   </button>
                 )}
                 {b.niveau >= NIVEAU_MAX_BATIMENT ? (

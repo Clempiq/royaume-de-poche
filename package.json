@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "node --test tests/*.test.mjs",
     "simulation": "node tests/simulation.mjs 30",
+    "e2e": "node tests/e2e-mobile.mjs",
     "art": "python3 scripts/preparer-art.py"
   },
   "dependencies": {

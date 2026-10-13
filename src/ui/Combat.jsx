@@ -1,14 +1,28 @@
 import { useEffect, useReducer, useRef, useState } from 'react'
-import { creerCombat, avancer, agir, tourMonstre, bilanCombat, vivants, unite, competenceParId } from '../engine/battle.js'
-import { CLASSES } from '../data/heroes.js'
+import { creerCombat, agir, phaseMonstres, fuir, bilanCombat, vivants, unite, capacite, attaqueDeBase, estimer, herosDisponibles } from '../engine/battle.js'
+import { choisirAction } from '../engine/ia.js'
 import { CONSOMMABLES } from '../data/items.js'
-import { efficacite } from '../data/types.js'
+import { TYPES, efficacite } from '../data/types.js'
 import { Barre, Type, art } from './commun.jsx'
 import { son } from './sons.js'
 
-const pause = (ms) => new Promise((r) => setTimeout(r, ms))
+const lire = (k, d) => {
+  try {
+    const v = localStorage.getItem(k)
+    return v === null ? d : v === '1'
+  } catch {
+    return d
+  }
+}
+const ecrire = (k, v) => {
+  try {
+    localStorage.setItem(k, v ? '1' : '0')
+  } catch {
+    /* rien */
+  }
+}
 
-export default function Combat({ heros, ennemis, boss, sac, fond, titre, onFin }) {
+export default function Combat({ heros, ennemis, boss, sac, fond, titre, aide, onAideVue, onFin }) {
   const bRef = useRef(null)
   if (!bRef.current) bRef.current = creerCombat({ heros, ennemis, boss, sac })
   const b = bRef.current
@@ -23,12 +37,21 @@ export default function Combat({ heros, ennemis, boss, sac, fond, titre, onFin }
   const [nombres, setNombres] = useState([])
   const [touches, setTouches] = useState({})
   const [agitUid, setAgitUid] = useState(null)
-  const [tourDe, setTourDe] = useState(null)
-  const [mode, setMode] = useState('attente')
-  const [enAttente, setEnAttente] = useState(null)
+  const [mode, setMode] = useState('intro') // intro | joueur | anim | fin
+  const [choisi, setChoisi] = useState(null) // héros sélectionné
+  const [enAttente, setEnAttente] = useState(null) // capacité ou objet qui attend sa cible
+  const [panneau, setPanneau] = useState('capacites') // capacites | objets
+  const [auto, setAuto] = useState(() => lire('rdp-auto', false))
+  const [rapide, setRapide] = useState(() => lire('rdp-rapide', false))
+  const [voirAide, setVoirAide] = useState(aide)
+  const rapideRef = useRef(rapide)
+  rapideRef.current = rapide
+  const autoRef = useRef(auto)
+  autoRef.current = auto
   const elts = useRef({})
   const zone = useRef(null)
-  const lance = useRef(false)
+
+  const pause = (ms) => new Promise((r) => setTimeout(r, rapideRef.current ? ms * 0.45 : ms))
 
   function position(uid) {
     const el = elts.current[uid]
@@ -51,9 +74,9 @@ export default function Combat({ heros, ennemis, boss, sac, fond, titre, onFin }
       if (e.t === 'action') {
         const s = unite(b, e.source)
         setAgitUid(e.source)
-        setAnnonce({ grand: e.objet ? `${s.nom} utilise ${e.nom}` : `${s.nom} : ${e.nom}`, petit: '' })
+        setAnnonce({ grand: e.objet ? `${s.nom} utilise ${e.nom}` : `${s.nom} : ${e.nom}`, petit: '', type: e.type })
         son(e.objet ? 'objet' : 'action')
-        await pause(420)
+        await pause(400)
         setAgitUid(null)
       } else if (e.t === 'degats') {
         const a = aff[e.cible]
@@ -71,7 +94,11 @@ export default function Combat({ heros, ennemis, boss, sac, fond, titre, onFin }
         son(e.crit ? 'critique' : e.mult > 1 ? 'super' : 'coup')
         if (navigator.vibrate && unite(b, e.cible)?.camp === 'h') navigator.vibrate(30)
         rafraichir()
-        await pause(560)
+        await pause(520)
+      } else if (e.t === 'esquive') {
+        afficherNombre(e.cible, 'Esquive !', 'esquive')
+        son('clic')
+        await pause(450)
       } else if (e.t === 'soin') {
         const a = aff[e.cible]
         if (e.reanime) a.ko = false
@@ -80,65 +107,80 @@ export default function Combat({ heros, ennemis, boss, sac, fond, titre, onFin }
         if (e.texte) setAnnonce({ grand: e.texte, petit: '' })
         son('soin')
         rafraichir()
-        await pause(520)
+        await pause(480)
       } else if (e.t === 'pm') {
         aff[e.cible].pm += e.valeur
         afficherNombre(e.cible, '+' + e.valeur + ' PM', 'pm')
         rafraichir()
-        await pause(450)
+        await pause(420)
       } else if (e.t === 'ko') {
         aff[e.cible].ko = true
         aff[e.cible].pv = 0
         setAnnonce({ grand: e.texte, petit: '' })
         son('ko')
         rafraichir()
-        await pause(600)
+        await pause(560)
       } else if (e.t === 'invoque') {
         const u = unite(b, e.cible)
         aff[e.cible] = { pv: u.pv, pm: 0, ko: false }
         setAnnonce({ grand: e.texte, petit: '' })
         rafraichir()
-        await pause(800)
+        await pause(750)
       } else if (e.t === 'statut' || e.t === 'type' || e.t === 'texte') {
         setAnnonce({ grand: e.texte, petit: '' })
         rafraichir()
-        await pause(650)
+        await pause(600)
       }
     }
-    // Recaler l'affichage sur l'état réel
     for (const u of b.units) aff[u.uid] = { pv: u.pv, pm: u.pm, ko: u.ko }
     rafraichir()
   }
 
-  async function boucle() {
-    for (;;) {
-      const { unite: u, evenements } = avancer(b)
-      await jouer(evenements)
-      if (!u) return terminer()
-      setTourDe(u.uid)
-      if (u.camp === 'm') {
-        await pause(380)
-        await jouer(tourMonstre(b))
-        if (b.fini) return terminer()
-      } else {
-        setAnnonce({ grand: `À ${u.nom} de jouer !`, petit: '' })
-        setMode('menu')
-        return
-      }
-    }
+  // Après chaque action : fin du combat, tour des monstres, ou héros suivant
+  async function suite() {
+    if (b.fini) return terminer()
+    if (herosDisponibles(b).length) return redonnerLaMain()
+    setChoisi(null)
+    setAnnonce({ grand: 'Au tour des monstres…', petit: '' })
+    await pause(450)
+    await jouer(phaseMonstres(b))
+    if (b.fini) return terminer()
+    if (!herosDisponibles(b).length) return suite()
+    redonnerLaMain(true)
   }
 
-  async function executer(action) {
-    setMode('attente')
+  function redonnerLaMain(nouveauTour = false) {
+    const dispo = herosDisponibles(b)
+    setChoisi((c) => (c && dispo.some((u) => u.uid === c) ? c : dispo[0]?.uid))
     setEnAttente(null)
-    await jouer(agir(b, action))
-    if (b.fini) return terminer()
-    boucle()
+    setPanneau('capacites')
+    if (nouveauTour) setAnnonce({ grand: `Tour ${b.tour} : à vous !`, petit: 'Vos héros récupèrent 2 PM.' })
+    else setAnnonce((a) => (a.grand.startsWith('Tour') || a.grand.includes('vous') ? a : { grand: `À qui le tour ?`, petit: `Encore ${dispo.length} héros à jouer` }))
+    setMode('joueur')
+  }
+
+  async function executer(uid, action) {
+    setMode('anim')
+    setEnAttente(null)
+    await jouer(agir(b, uid, action))
+    suite()
+  }
+
+  async function finDuTour() {
+    b.aAgi = vivants(b, 'h').map((u) => u.uid)
+    setMode('anim')
+    suite()
+  }
+
+  async function tenterFuite() {
+    setMode('anim')
+    await jouer(fuir(b))
+    suite()
   }
 
   async function terminer() {
     setMode('fin')
-    setTourDe(null)
+    setChoisi(null)
     const textes = { victoire: 'Victoire !', defaite: 'L\'équipe est à terre…', fuite: 'Vous avez pris la fuite.' }
     setAnnonce({ grand: textes[b.fini], petit: '' })
     son(b.fini === 'victoire' ? 'victoire' : 'defaite')
@@ -146,59 +188,99 @@ export default function Combat({ heros, ennemis, boss, sac, fond, titre, onFin }
     onFin(bilanCombat(b))
   }
 
+  // Démarrage
   useEffect(() => {
-    if (lance.current) return
-    lance.current = true
-    pause(900).then(boucle)
+    const t = setTimeout(() => {
+      if (b.mode === 'lance') return
+      b.mode = 'lance'
+      redonnerLaMain()
+      setAnnonce({ grand: 'À vous de jouer !', petit: 'Choisissez un héros, une capacité, puis une cible.' })
+    }, 900)
+    return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const acteur = tourDe ? unite(b, tourDe) : null
+  // Combat automatique : l'IA joue le héros sélectionné
+  useEffect(() => {
+    if (!auto || mode !== 'joueur' || !choisi) return
+    const t = setTimeout(() => {
+      if (!autoRef.current) return
+      const action = choisirAction(b, choisi)
+      if (action) executer(choisi, action)
+      else finDuTour()
+    }, rapideRef.current ? 120 : 280)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auto, mode, choisi])
+
+  const acteur = choisi ? unite(b, choisi) : null
   const ennemisVivants = vivants(b, 'm')
 
-  // Choix d'une compétence ou d'un objet : passe au choix de la cible si besoin
-  function preparer(action, cible) {
-    if (cible === 'ennemi') {
-      if (ennemisVivants.length === 1) return executer({ ...action, cible: ennemisVivants[0].uid })
-      setEnAttente(action)
-      setMode('cible-ennemi')
-    } else if (cible === 'allie' || cible === 'allie-ko') {
-      setEnAttente({ ...action, ko: cible === 'allie-ko' })
-      setMode('cible-allie')
-    } else executer(action)
+  function choisirCapacite(comp) {
+    if (!acteur) return
+    const action = { kind: 'capacite', id: comp.id }
+    if ((comp.cible || 'ennemi') === 'ennemi') {
+      if (ennemisVivants.length === 1) return executer(acteur.uid, { ...action, cible: ennemisVivants[0].uid })
+      setEnAttente({ ...action, comp, cible: 'ennemi' })
+    } else if (comp.cible === 'allie') setEnAttente({ ...action, comp, cible: 'allie' })
+    else executer(acteur.uid, action)
+  }
+
+  function choisirObjet(id) {
+    const o = CONSOMMABLES[id]
+    setEnAttente({ kind: 'objet', id, cible: o.effet.reanime ? 'allie-ko' : 'allie' })
   }
 
   function toucherEnnemi(uid) {
-    if (mode !== 'cible-ennemi' || !enAttente) return
-    executer({ ...enAttente, cible: uid })
+    if (mode !== 'joueur' || enAttente?.cible !== 'ennemi') return
+    executer(acteur.uid, { kind: enAttente.kind, id: enAttente.id, cible: uid })
   }
+
   function toucherHeros(uid) {
-    if (mode !== 'cible-allie' || !enAttente) return
+    if (mode !== 'joueur') return
     const u = unite(b, uid)
-    if (enAttente.ko ? !u.ko : u.ko) return
-    executer({ kind: enAttente.kind, id: enAttente.id, cible: uid })
+    if (enAttente && (enAttente.cible === 'allie' || enAttente.cible === 'allie-ko')) {
+      if (enAttente.cible === 'allie-ko' ? !u.ko : u.ko) return
+      return executer(acteur.uid, { kind: enAttente.kind, id: enAttente.id, cible: uid })
+    }
+    if (!u.ko && !b.aAgi.includes(uid)) {
+      setChoisi(uid)
+      setEnAttente(null)
+      setPanneau('capacites')
+      son('clic')
+    }
   }
 
   const herosUnits = b.units.filter((u) => u.camp === 'h')
   const monstres = b.units.filter((u) => u.camp === 'm')
+  const ciblageEnnemi = mode === 'joueur' && enAttente?.cible === 'ennemi'
 
   return (
     <div className="combat" ref={zone}>
       <div className="fond" style={{ backgroundImage: `url(${art(fond)})` }} />
       <div className="combat-haut">
+        <div className="commandes">
+          <span className="tour-badge">Tour {b.tour}</span>
+          <div className="espace" />
+          {!boss && mode === 'joueur' && (
+            <button className="puce" onClick={tenterFuite}>🏃 Fuir</button>
+          )}
+          <button className={`puce ${rapide ? 'on' : ''}`} onClick={() => { setRapide(!rapide); ecrire('rdp-rapide', !rapide) }}>⏩ ×2</button>
+          <button className={`puce ${auto ? 'on' : ''}`} onClick={() => { setAuto(!auto); ecrire('rdp-auto', !auto) }}>🤖 Auto</button>
+        </div>
         <div className="annonce">
           <div>
             <div className="grand">{annonce.grand}</div>
-            {annonce.petit && <div style={{ color: '#ffcf5a', fontSize: 13 }}>{annonce.petit}</div>}
+            {annonce.petit && <div className="petit">{annonce.petit}</div>}
           </div>
         </div>
-        <div className="tour-de">Tour {Math.max(1, b.tour)}</div>
       </div>
 
       <div className="ennemis">
         {monstres.map((u) => {
           const a = aff[u.uid] || { pv: u.pv, ko: u.ko }
-          const ciblable = mode === 'cible-ennemi' && !u.ko
+          const ciblable = ciblageEnnemi && !u.ko
+          const est = ciblable && acteur ? estimer(b, acteur.uid, enAttente.comp, u.uid) : null
           return (
             <div
               key={u.uid}
@@ -214,6 +296,14 @@ export default function Combat({ heros, ennemis, boss, sac, fond, titre, onFin }
                 <Barre val={a.pv} max={u.max.pv} className={u.boss ? 'boss' : ''} texte={u.boss ? `${a.pv} / ${u.max.pv}` : null} />
                 <Statuts u={u} />
               </div>
+              {est && (
+                <div className={`apercu ${est.mult > 1 ? 'super' : est.mult < 1 ? 'faible' : ''}`}>
+                  ≈ {est.min}–{est.max}
+                  {est.mult > 1 && <span>Super efficace</span>}
+                  {est.mult < 1 && <span>Peu efficace</span>}
+                  {est.ko && <span>K.O. probable</span>}
+                </div>
+              )}
               <img key={touches[u.uid] || 0} className={touches[u.uid] ? 'touche' : ''} src={art(u.image)} alt={u.nom} draggable="false" />
             </div>
           )
@@ -223,14 +313,17 @@ export default function Combat({ heros, ennemis, boss, sac, fond, titre, onFin }
       <div className="heros-zone">
         {herosUnits.map((u) => {
           const a = aff[u.uid]
-          const ciblable = mode === 'cible-allie' && enAttente && (enAttente.ko ? a.ko : !a.ko)
+          const aJoue = b.aAgi.includes(u.uid) && mode !== 'fin'
+          const ciblable = mode === 'joueur' && enAttente && (enAttente.cible === 'allie-ko' ? a.ko : enAttente.cible === 'allie' && !a.ko)
+          const selectionnable = mode === 'joueur' && !enAttente && !a.ko && !aJoue
           return (
             <div
               key={u.uid}
               ref={(el) => (elts.current[u.uid] = el)}
-              className={`carte-heros ${tourDe === u.uid && mode !== 'fin' ? 'actif' : ''} ${a.ko ? 'ko' : ''} ${ciblable ? 'ciblable' : ''} ${agitUid === u.uid ? 'agit' : ''}`}
+              className={`carte-heros ${choisi === u.uid && mode === 'joueur' ? 'actif' : ''} ${a.ko ? 'ko' : ''} ${aJoue ? 'a-joue' : ''} ${ciblable ? 'ciblable' : ''} ${selectionnable && choisi !== u.uid ? 'dispo' : ''} ${agitUid === u.uid ? 'agit' : ''}`}
               onClick={() => toucherHeros(u.uid)}
             >
+              {aJoue && !a.ko && <span className="coche">✓</span>}
               <div className="portrait">
                 <img key={touches[u.uid] || 0} className={touches[u.uid] ? 'touche' : ''} src={art(u.image)} alt={u.nom} draggable="false" />
               </div>
@@ -249,17 +342,40 @@ export default function Combat({ heros, ennemis, boss, sac, fond, titre, onFin }
       </div>
 
       <div className="actions">
-        <Menu
-          mode={mode}
-          acteur={acteur}
-          b={b}
-          ennemis={ennemisVivants}
-          setMode={setMode}
-          preparer={preparer}
-          executer={executer}
-          annuler={() => { setEnAttente(null); setMode('menu') }}
-        />
+        {mode === 'joueur' && acteur && !auto ? (
+          enAttente ? (
+            <div>
+              <div className="consigne">
+                {enAttente.cible === 'ennemi' ? '👆 Touchez l\'ennemi à viser (dégâts estimés au-dessus)' : enAttente.cible === 'allie-ko' ? '👆 Touchez le héros K.O.' : '👆 Touchez le héros à aider'}
+              </div>
+              <button className="btn bois petit" onClick={() => setEnAttente(null)}>◂ Changer d'action</button>
+            </div>
+          ) : panneau === 'objets' ? (
+            <Objets b={b} onChoisir={choisirObjet} onRetour={() => setPanneau('capacites')} />
+          ) : (
+            <Capacites acteur={acteur} ennemis={ennemisVivants} onChoisir={choisirCapacite} onObjets={() => setPanneau('objets')} onGarde={() => executer(acteur.uid, { kind: 'defendre' })} onFin={finDuTour} restants={herosDisponibles(b).length} />
+          )
+        ) : (
+          <div className="attente">
+            {mode === 'fin' ? '…' : auto && mode === 'joueur' ? '🤖 Combat automatique… (touchez Auto pour reprendre la main)' : mode === 'intro' ? 'Préparez-vous !' : 'Patience…'}
+          </div>
+        )}
       </div>
+
+      {voirAide && (
+        <div className="aide-combat" onClick={() => { setVoirAide(false); onAideVue?.() }}>
+          <div className="panneau">
+            <h3 className="titre">Comment combattre</h3>
+            <ol>
+              <li><b>Touchez un héros</b> pour le sélectionner. Vos 3 héros jouent chacun une fois, dans l'ordre que vous voulez.</li>
+              <li><b>Choisissez une capacité.</b> Sa couleur indique son type : 💥 signale une capacité super efficace contre un ennemi présent.</li>
+              <li><b>Touchez la cible.</b> Les dégâts estimés s'affichent avant de taper.</li>
+              <li>Quand vos héros ont joué, <b>les monstres répondent</b>. Chaque tour, vos héros récupèrent 2 PM.</li>
+            </ol>
+            <button className="btn vert petit">Compris !</button>
+          </div>
+        </div>
+      )}
 
       <div className="nombres">
         {nombres.map((n) => (
@@ -289,93 +405,79 @@ function Statuts({ u }) {
   )
 }
 
-function Menu({ mode, acteur, b, ennemis, setMode, preparer, executer, annuler }) {
-  if (mode === 'fin') return <div className="attente">…</div>
-  if (!acteur || acteur.camp !== 'h' || mode === 'attente') return <div className="attente">Les monstres préparent un mauvais coup…</div>
-
-  if (mode === 'cible-ennemi' || mode === 'cible-allie') {
-    return (
-      <div>
-        <div className="attente" style={{ padding: '14px 0 6px' }}>
-          {mode === 'cible-ennemi' ? '👆 Touchez l\'ennemi à viser' : '👆 Touchez le héros à aider'}
-        </div>
-        <button className="btn bois petit" onClick={annuler}>Retour</button>
-      </div>
-    )
-  }
-
-  if (mode === 'competences') {
-    const comps = acteur.competences.map((id) => competenceParId(acteur.classe, id))
-    return (
-      <div>
-        <div className="liste-choix">
-          {comps.map((c) => {
-            const effic = c.puissance && c.type ? Math.max(...ennemis.map((e) => efficacite(c.type, e.type))) : 1
-            return (
-              <button
-                key={c.id}
-                className="choix"
-                disabled={acteur.pm < c.cout}
-                onClick={() => preparer({ kind: 'competence', id: c.id }, c.cible === 'ennemi' ? 'ennemi' : c.cible === 'allie' ? 'allie' : 'auto')}
-              >
-                <div style={{ flex: 1 }}>
-                  <div className="ligne">
-                    <span className="nom">{c.nom}</span>
-                    {c.type && <Type t={c.type} />}
-                    {effic > 1 && <span style={{ color: '#d0661a', fontSize: 11 }}>💥 efficace</span>}
-                  </div>
-                  <div className="desc">{c.desc}</div>
-                </div>
-                <span className="cout">{c.cout} PM</span>
-              </button>
-            )
-          })}
-        </div>
-        <button className="retour" onClick={() => setMode('menu')}>◂ Retour</button>
-      </div>
-    )
-  }
-
-  if (mode === 'objets') {
-    const objets = Object.entries(b.sac).filter(([, n]) => n > 0)
-    return (
-      <div>
-        <div className="liste-choix">
-          {!objets.length && <div className="attente">Le sac est vide.</div>}
-          {objets.map(([id, n]) => {
-            const o = CONSOMMABLES[id]
-            const koDispo = b.units.some((u) => u.camp === 'h' && u.ko)
-            const desactive = o.effet.reanime && !koDispo
-            return (
-              <button key={id} className="choix" disabled={desactive} onClick={() => preparer({ kind: 'objet', id }, o.effet.reanime ? 'allie-ko' : 'allie')}>
-                <span style={{ fontSize: 24 }}>{o.icone}</span>
-                <div style={{ flex: 1 }}>
-                  <div className="nom">{o.nom}</div>
-                  <div className="desc">{o.desc}</div>
-                </div>
-                <span className="cout">×{n}</span>
-              </button>
-            )
-          })}
-        </div>
-        <button className="retour" onClick={() => setMode('menu')}>◂ Retour</button>
-      </div>
-    )
-  }
-
-  const c = CLASSES[acteur.classe]
+function TuileCapacite({ comp, acteur, ennemis, onClick, compacte }) {
+  const t = comp.type ? TYPES[comp.type] : null
+  const effic = comp.puissance && comp.type ? Math.max(...ennemis.map((e) => efficacite(comp.type, e.type))) : 1
+  const toutesResistent = comp.puissance && comp.type && ennemis.every((e) => efficacite(comp.type, e.type) < 1)
+  const manque = (comp.cout || 0) > acteur.pm
+  const soutien = !comp.puissance
   return (
-    <div className="grille">
-      <button className="btn rouge petit" onClick={() => preparer({ kind: 'attaque' }, 'ennemi')}>⚔️ {c.attaque.nom}</button>
-      <button className="btn bleu petit" onClick={() => setMode('competences')}>✨ Compétences</button>
-      <button className="btn vert petit" onClick={() => setMode('objets')}>🎒 Objets</button>
-      <button className="btn bois petit" onClick={() => executer({ kind: 'defendre' })}>🛡️ En garde</button>
-      {!b.boss && (
-        <button className="btn bois petit" style={{ gridColumn: 'span 2', minHeight: 32 }} onClick={() => executer({ kind: 'fuir' })}>
-          🏃 Fuir
-        </button>
-      )}
+    <button
+      className={`tuile-cap ${compacte ? 'compacte' : ''} ${soutien ? 'soutien' : ''}`}
+      style={{ '--tc': !t ? '#6aa0c8' : comp.type === 'neutre' ? '#b07a48' : t.couleur }}
+      disabled={manque}
+      onClick={onClick}
+    >
+      <span className="haut">
+        <span className="nom">{comp.nom}</span>
+        {effic > 1 && <span className="effic" title="Super efficace">💥</span>}
+        {toutesResistent && <span className="effic" title="Peu efficace">🛡</span>}
+      </span>
+      <span className="bas">
+        <span>{t ? `${t.icone} ${t.nom}` : comp.cible === 'allie' || comp.cible === 'allies' ? '💚 Soutien' : '✨ Soutien'}</span>
+        <span className="cout">{comp.cout ? `${comp.cout} PM` : 'Gratuit'}</span>
+      </span>
+    </button>
+  )
+}
+
+function Capacites({ acteur, ennemis, onChoisir, onObjets, onGarde, onFin, restants }) {
+  const caps = acteur.capacites.map((id) => capacite(acteur, id)).filter(Boolean)
+  const base = attaqueDeBase(acteur)
+  return (
+    <div>
+      <div className="entete-acteur">
+        <b>{acteur.nom}</b>
+        <span>{acteur.pm} PM</span>
+        <span className="discret-clair">{restants > 1 ? `${restants} héros à jouer` : 'Dernier héros du tour'}</span>
+      </div>
+      <div className="grille-caps">
+        {caps.map((c) => (
+          <TuileCapacite key={c.id} comp={c} acteur={acteur} ennemis={ennemis} onClick={() => onChoisir(c)} />
+        ))}
+      </div>
+      <div className="rangee-actions">
+        <TuileCapacite comp={base} acteur={acteur} ennemis={ennemis} onClick={() => onChoisir(base)} compacte />
+        <button className="mini-btn" onClick={onObjets}>🎒<span>Objets</span></button>
+        <button className="mini-btn" onClick={onGarde}>🛡️<span>Garde</span></button>
+        <button className="mini-btn" onClick={onFin}>⏭<span>Fin</span></button>
+      </div>
     </div>
   )
 }
 
+function Objets({ b, onChoisir, onRetour }) {
+  const objets = Object.entries(b.sac).filter(([, n]) => n > 0)
+  const koDispo = b.units.some((u) => u.camp === 'h' && u.ko)
+  return (
+    <div>
+      <div className="liste-choix">
+        {!objets.length && <div className="attente">Le sac est vide.</div>}
+        {objets.map(([id, n]) => {
+          const o = CONSOMMABLES[id]
+          return (
+            <button key={id} className="choix" disabled={o.effet.reanime && !koDispo} onClick={() => onChoisir(id)}>
+              <span style={{ fontSize: 24 }}>{o.icone}</span>
+              <div style={{ flex: 1 }}>
+                <div className="nom">{o.nom}</div>
+                <div className="desc">{o.desc}</div>
+              </div>
+              <span className="cout">×{n}</span>
+            </button>
+          )
+        })}
+      </div>
+      <button className="retour" onClick={onRetour}>◂ Retour aux capacités</button>
+    </div>
+  )
+}

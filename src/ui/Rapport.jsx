@@ -44,7 +44,8 @@ export function Rapport({ r, onContinuer, onFermer }) {
           <span style={{ fontSize: 22 }}>⬆️</span>
           <div>
             <div className="n">{CLASSES[n.classe].prenom} passe au niveau {n.niveau} !</div>
-            {n.competences.length > 0 && <div className="d" style={{ color: 'var(--violet)' }}>Nouvelle compétence : {n.competences.join(', ')}</div>}
+            {n.competences.length > 0 && <div className="d" style={{ color: 'var(--violet)' }}>Nouvelle capacité : {n.competences.join(', ')}</div>}
+            {n.aEquiper && <div className="d">4 capacités déjà équipées : choisissez lesquelles garder dans Équipe.</div>}
           </div>
         </div>
       ))}
@@ -92,6 +93,28 @@ export function Carnet({ r, onFermer }) {
       </div>
       <p className="discret">L'équipe s'est reposée en arrivant : PV et PM au maximum.</p>
       <button className="btn vert" onClick={onFermer}>Découvrir la ville</button>
+    </Modale>
+  )
+}
+
+export function RetourExpedition({ r, onFermer }) {
+  return (
+    <Modale onFermer={onFermer}>
+      <div className="bandeau">⛵ Retour de mer</div>
+      <p style={{ marginTop: 0 }}>Le bateau rentre de l'expédition <b>{r.nom}</b> !</p>
+      <div className="stat" style={{ marginBottom: 8 }}><b>+{r.or}</b><span>or</span></div>
+      {Object.entries(r.consommables).map(([k, n]) => (
+        <div key={k} className="competence">
+          <span style={{ fontSize: 22 }}>{CONSOMMABLES[k].icone}</span>
+          <div className="n">{CONSOMMABLES[k].nom} ×{n}</div>
+        </div>
+      ))}
+      <div className="pile" style={{ gap: 6, marginTop: 6 }}>
+        {r.objets.map((o) => (
+          <Objet key={o.id} o={o}>{o.vendu && <span className="porte">Sac plein : vendu</span>}</Objet>
+        ))}
+      </div>
+      <button className="btn vert" style={{ marginTop: 12 }} onClick={onFermer}>Super !</button>
     </Modale>
   )
 }

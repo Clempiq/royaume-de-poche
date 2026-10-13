@@ -6,6 +6,7 @@ export const BATIMENTS = {
   mine: {
     nom: 'Mine d\'or',
     icone: '⛏️',
+    image: 't-mine',
     desc: 'Produit de l\'or en continu, même quand vous n\'êtes pas là. Pensez à récolter avant qu\'elle soit pleine.',
     production: [0, 20, 40, 70, 110, 160], // or par heure
     capacite: [0, 80, 200, 400, 650, 1000],
@@ -15,15 +16,27 @@ export const BATIMENTS = {
   entrainement: {
     nom: 'Terrain d\'entraînement',
     icone: '🎯',
+    image: 't-entrainement',
     desc: 'Vos héros gagnent de l\'expérience pendant que vous faites autre chose.',
     production: [0, 12, 25, 45, 75, 115], // XP par heure et par héros
     capacite: [0, 60, 160, 330, 560, 900],
     cout: [0, 0, 110, 320, 750, 1500],
     duree: [0, 0, 3, 25, 100, 260],
   },
+  herboristerie: {
+    nom: 'Herboristerie',
+    icone: '🌿',
+    image: 't-herboristerie',
+    desc: 'Prépare des potions toute seule. À partir du niveau 3, une sur deux est une super potion.',
+    production: [0, 1, 1.6, 2.4, 3.2, 4.5], // potions par heure
+    capacite: [0, 4, 7, 10, 14, 20],
+    cout: [0, 0, 120, 340, 780, 1500],
+    duree: [0, 0, 3, 25, 100, 260],
+  },
   forge: {
     nom: 'Forge',
     icone: '🔨',
+    image: 't-forge',
     desc: 'Améliore votre équipement. Chaque niveau de forge permet d\'aller un cran plus loin (+1, +2…).',
     cout: [0, 0, 130, 380, 850, 1700],
     duree: [0, 0, 3, 25, 100, 260],

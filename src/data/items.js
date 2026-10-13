@@ -19,7 +19,7 @@ export const RARETES = {
 export const EMPLACEMENTS = {
   arme: { nom: 'Arme', icone: '⚔️' },
   armure: { nom: 'Armure', icone: '🛡️' },
-  accessoire: { nom: 'Accessoire', icone: '💍' },
+  accessoire: { nom: 'Objet tenu', icone: '💍' },
 }
 
 // Bases d'objets : noms par palier de niveau (0 à 3)
@@ -30,6 +30,12 @@ export const BASES = {
   armure: { slot: 'armure', icone: '🥋', noms: ['Tunique', 'Veste de cuir', 'Cotte de mailles', 'Armure d\'écailles'] },
   anneau: { slot: 'accessoire', icone: '💍', noms: ['Anneau de cuivre', 'Anneau d\'argent', 'Anneau d\'or', 'Anneau de platine'] },
   amulette: { slot: 'accessoire', icone: '📿', noms: ['Pendentif', 'Amulette', 'Médaillon', 'Talisman'] },
+  // Objets tenus qui renforcent un type, comme dans Pokémon
+  charbon: { slot: 'accessoire', icone: '🔥', elem: 'feu', noms: ['Charbon ardent', 'Charbon ardent', 'Braise éternelle', 'Cœur de volcan'] },
+  perle: { slot: 'accessoire', icone: '🫧', elem: 'eau', noms: ['Perle d\'eau', 'Perle d\'eau', 'Perle des abysses', 'Larme de l\'océan'] },
+  graine: { slot: 'accessoire', icone: '🌱', elem: 'plante', noms: ['Graine vivace', 'Graine vivace', 'Gland millénaire', 'Cœur de la forêt'] },
+  ambre: { slot: 'accessoire', icone: '⚡', elem: 'foudre', noms: ['Pierre d\'ambre', 'Pierre d\'ambre', 'Ambre crépitante', 'Éclat d\'orage'] },
+  galet: { slot: 'accessoire', icone: '🪨', elem: 'roche', noms: ['Galet runique', 'Galet runique', 'Pierre ancienne', 'Cœur de montagne'] },
 }
 
 // Affixes tirés au hasard selon la rareté
@@ -49,7 +55,7 @@ export const AFFIXES = [
 ]
 
 export const NOMS_STATS = {
-  pv: 'PV', pm: 'PM', atq: 'Attaque', mag: 'Magie', def: 'Défense', vit: 'Vitesse', crit: 'Critique',
+  puiss: 'Puissance', pv: 'PV', pm: 'PM', atq: 'Attaque', mag: 'Magie', def: 'Défense', vit: 'Vitesse', crit: 'Critique',
 }
 
 export const FORGE_MAX = 5

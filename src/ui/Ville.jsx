@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { VILLES, PNJ, DIALOGUES, ORDRE_VILLES } from '../data/world.js'
+import { VILLES, PNJ, DIALOGUES, ORDRE_VILLES, BATIMENTS_VILLE, REPAS, EXPEDITIONS } from '../data/world.js'
 import { MONSTRES } from '../data/monsters.js'
 import { CLASSES, ORDRE_EQUIPE } from '../data/heroes.js'
 import * as G from '../engine/game.js'
@@ -38,7 +38,7 @@ export function Eclats({ s }) {
   )
 }
 
-export default function Ville({ s, maj, lancerCombat, parler, aller, toast, finAventure }) {
+export default function Ville({ s, maj, lancerCombat, parler, aller, toast, finAventure, onExpedition }) {
   const [confirmeVoyage, setConfirmeVoyage] = useState(false)
   const v = G.villeCourante(s)
   const pnj = PNJ[v.pnj]
@@ -71,69 +71,57 @@ export default function Ville({ s, maj, lancerCombat, parler, aller, toast, finA
 
         <EquipeMini s={s} />
 
-        <div className="pile">
-          <button className="btn vert gauche" onClick={() => lancerCombat('sauvage')}>
-            <span className="ico">🌿</span>
-            <span className="col">
-              Explorer : {v.zone.nom}
-              <span className="sous">Monstres de niveau {v.zone.niveaux[0]} à {v.zone.niveaux[1]}</span>
+        <BandeauxInfos s={s} maj={maj} toast={toast} onExpedition={onExpedition} />
+
+        <div className="place">
+          <button className="batisse large vert" onClick={() => lancerCombat('sauvage')}>
+            <img src={art('t-porte')} alt="" />
+            <span>
+              <span className="n">Explorer : {v.zone.nom}</span>
+              <br />
+              <span className="s">Monstres de niveau {v.zone.niveaux[0]} à {v.zone.niveaux[1]}</span>
             </span>
           </button>
-
-          {!battue ? (
-            <button className="btn rouge gauche" onClick={() => lancerCombat('arene')}>
-              <span className="ico">🏟️</span>
-              <span className="col">
-                Arène : {boss.nom}
-                <span className="sous">
-                  Niveau {v.arene.niveau} · conseillé : héros niv. {v.arene.conseil}
-                  {moyenne < v.arene.conseil ? ' ⚠️' : ' ✓'}
-                </span>
+          <button className={`batisse large ${battue ? '' : 'rouge'}`} disabled={battue} onClick={() => lancerCombat('arene')}>
+            <img src={art('t-arene')} alt="" />
+            <span>
+              <span className="n">{battue ? 'Arène gagnée 💎' : `Arène : ${boss.nom}`}</span>
+              <br />
+              <span className="s">
+                {battue ? `L'éclat de ${boss.nom} est à vous` : `Niveau ${v.arene.niveau} · conseillé : héros niv. ${v.arene.conseil} ${moyenne < v.arene.conseil ? '⚠️' : '✓'}`}
               </span>
-            </button>
-          ) : (
-            <button className="btn bois gauche" disabled>
-              <span className="ico">💎</span>
-              <span className="col">
-                Arène gagnée
-                <span className="sous">L'éclat de {boss.nom} est à vous</span>
-              </span>
-            </button>
-          )}
-
-          <div className="grille2">
-            <button className="btn bleu" onClick={() => aller('boutique')}>
-              <span className="ico">🛒</span> Boutique
-            </button>
-            <button
-              className="btn bois"
-              disabled={enForme}
-              onClick={() => {
-                maj((d) => G.seReposer(d))
-                toast('L\'équipe a bien dormi : PV et PM au maximum !')
-              }}
-            >
-              <span className="ico">🛏️</span>
-              <span className="col">
-                Auberge
-                <span className="sous">{enForme ? 'Déjà en forme' : 'Soins gratuits'}</span>
-              </span>
-            </button>
-          </div>
-
+            </span>
+          </button>
+          <Batisse image="t-boutique" nom="Boutique" sous="Potions et équipement" onClick={() => aller('boutique')} />
+          <Batisse
+            image="t-auberge"
+            nom="Auberge"
+            sous={enForme ? 'Déjà en forme' : 'Soins gratuits'}
+            disabled={enForme}
+            onClick={() => {
+              maj((d) => G.seReposer(d))
+              toast('L\'équipe a bien dormi : PV et PM au maximum !')
+            }}
+          />
+          {v.batiments.map((k) => (
+            <Batisse key={k} image={BATIMENTS_VILLE[k].image} nom={BATIMENTS_VILLE[k].court} sous={sousTitre(k, s)} badge={k === 'port' && G.expeditionRentree(s) ? '!' : null} onClick={() => aller(k)} />
+          ))}
           {voyage && (
-            <button className={`btn ${battue ? 'violet' : 'bois'} gauche`} disabled={!battue} onClick={() => setConfirmeVoyage(true)}>
-              <span className="ico">🧭</span>
-              <span className="col">
-                Voyager vers {VILLES[voyage.vers].nom}
-                <span className="sous">{battue ? `${voyage.nom} · ${dureeTexte(voyage.minutes)} de marche` : 'Battez d\'abord le champion de l\'arène'}</span>
+            <button className={`batisse large ${battue ? 'violet' : ''}`} disabled={!battue} onClick={() => setConfirmeVoyage(true)}>
+              <img src={art('t-voyage')} alt="" />
+              <span>
+                <span className="n">Voyager vers {VILLES[voyage.vers].nom}</span>
+                <br />
+                <span className="s">{battue ? `${voyage.nom} · ${dureeTexte(voyage.minutes)} de marche` : 'Battez d\'abord le champion de l\'arène'}</span>
               </span>
             </button>
           )}
-
           {!voyage && toutFini && (
-            <button className="btn violet" onClick={finAventure}>
-              <span className="ico">👑</span> Rapporter les éclats au roi
+            <button className="batisse large violet" onClick={finAventure}>
+              <img src={art('p-roi')} alt="" />
+              <span>
+                <span className="n">Rapporter les éclats au roi</span>
+              </span>
             </button>
           )}
         </div>
@@ -168,6 +156,56 @@ export default function Ville({ s, maj, lancerCombat, parler, aller, toast, finA
   )
 }
 
+function Batisse({ image, nom, sous, onClick, disabled, badge }) {
+  return (
+    <button className="batisse" onClick={onClick} disabled={disabled}>
+      {badge && <span className="badge">{badge}</span>}
+      <img src={art(image)} alt="" />
+      <span className="n">{nom}</span>
+      <span className="s">{sous}</span>
+    </button>
+  )
+}
+
+function sousTitre(k, s) {
+  if (k === 'boulangerie') return s.repas ? `${REPAS[s.repas.id].icone} encore ${s.repas.combats} combats` : 'Repas qui renforcent'
+  if (k === 'maitre') return 'Nouvelles capacités'
+  if (k === 'port') return s.expedition ? (G.expeditionRentree(s) ? 'Bateau rentré !' : 'Bateau en mer') : 'Expéditions en mer'
+  if (k === 'enchanteur') return 'Relancer les bonus'
+  return ''
+}
+
+// Repas actif et expédition : visibles partout où l'on passe
+export function BandeauxInfos({ s, onExpedition }) {
+  useHorloge(1000)
+  const items = []
+  if (s.repas) {
+    const r = REPAS[s.repas.id]
+    items.push(
+      <div key="repas" className="bandeau-info">
+        <span style={{ fontSize: 20 }}>{r.icone}</span>
+        <span><b>{r.nom}</b> : {r.desc}, encore {s.repas.combats} combat{s.repas.combats > 1 ? 's' : ''}</span>
+      </div>,
+    )
+  }
+  if (s.expedition) {
+    const e = EXPEDITIONS[s.expedition.id]
+    const rentre = G.expeditionRentree(s)
+    items.push(
+      <div key="exp" className="bandeau-info">
+        <span style={{ fontSize: 20 }}>⛵</span>
+        <span>
+          <b>{e.nom}</b> : {rentre ? 'le bateau est rentré !' : `retour dans ${formatDuree(s.expedition.fin - maintenant())}`}
+        </span>
+        {rentre && onExpedition && (
+          <button className="btn vert petit" style={{ minHeight: 30, fontSize: 13 }} onClick={onExpedition}>Récupérer</button>
+        )}
+      </div>,
+    )
+  }
+  return items.length ? <>{items}</> : null
+}
+
 function dureeTexte(min) {
   const m = min / vitesse()
   if (m >= 60) return `${Math.round((m / 60) * 10) / 10} h`.replace('.', ',')
@@ -175,7 +213,7 @@ function dureeTexte(min) {
   return `${Math.round(m * 60)} s`
 }
 
-export function Voyage({ s, maj, lancerCombat, toast, onArrivee }) {
+export function Voyage({ s, maj, lancerCombat, toast, onArrivee, onExpedition }) {
   useHorloge(1000)
   const v = s.voyage
   const total = v.fin - v.debut
@@ -216,6 +254,7 @@ export function Voyage({ s, maj, lancerCombat, toast, onArrivee }) {
         </div>
 
         <div style={{ height: 12 }} />
+        <BandeauxInfos s={s} onExpedition={onExpedition} />
         <EquipeMini s={s} />
 
         <div className="pile">

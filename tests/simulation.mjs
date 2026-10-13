@@ -5,9 +5,9 @@ import * as G from '../src/engine/game.js'
 import { VILLES, ORDRE_VILLES } from '../src/data/world.js'
 import { ORDRE_EQUIPE } from '../src/data/heroes.js'
 import { statsObjet } from '../src/engine/loot.js'
-import { jouerCombat } from './ia-joueur.js'
+import { jouerCombat } from '../src/engine/ia.js'
 
-const valeur = (o) => Object.entries(statsObjet(o)).reduce((s, [k, v]) => s + v * (k === 'pv' ? 0.25 : 1), 0) + Object.values(o.elem).reduce((s, v) => s + v * 0.1, 0)
+const valeur = (o) => Object.entries(statsObjet(o)).reduce((s, [k, v]) => s + v * (k === 'pv' ? 0.25 : k === 'puiss' ? 1.5 : 1), 0) + Object.values(o.elem).reduce((s, v) => s + v * 0.1, 0)
 
 function equiperMieux(s) {
   for (const c of ORDRE_EQUIPE) {

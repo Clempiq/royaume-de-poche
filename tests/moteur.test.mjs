@@ -4,7 +4,7 @@ import { creerCombat, bilanCombat } from '../src/engine/battle.js'
 import * as G from '../src/engine/game.js'
 import { efficacite } from '../src/data/types.js'
 import { genererObjet } from '../src/engine/loot.js'
-import { jouerCombat } from './ia-joueur.js'
+import { jouerCombat } from '../src/engine/ia.js'
 
 test('table des types', () => {
   assert.equal(efficacite('feu', 'plante'), 2)
@@ -45,7 +45,7 @@ test('le voyage est bloqué tant que l\'arène n\'est pas gagnée', () => {
 test('objets : rareté et affixes', () => {
   const o = genererObjet({ niveau: 10, rarete: 'epique', base: 'sceptre' })
   assert.equal(o.classe, 'mage')
-  assert.ok(o.stats.mag > 0)
+  assert.ok(o.stats.puiss > 0)
 })
 
 test('campement : production et chantier', () => {
@@ -58,4 +58,45 @@ test('campement : production et chantier', () => {
   s.camp.chantier.fin = 0
   G.tic(s)
   assert.equal(s.camp.mine.niveau, 2)
+})
+
+test('phases : chaque héros agit une fois, puis les monstres', async () => {
+  const { creerCombat, agir, phaseMonstres, herosDisponibles } = await import('../src/engine/battle.js')
+  const s = G.nouvellePartie()
+  const b = creerCombat({ heros: G.herosPourCombat(s), ennemis: [{ id: 'grognard', niveau: 9 }], sac: s.sac })
+  assert.equal(herosDisponibles(b).length, 3)
+  agir(b, 'h-mage', { kind: 'defendre' })
+  assert.equal(agir(b, 'h-mage', { kind: 'defendre' }).length, 0)
+  assert.equal(herosDisponibles(b).length, 2)
+  phaseMonstres(b)
+  assert.equal(b.tour, 2)
+  assert.equal(herosDisponibles(b).length, b.units.filter((u) => u.camp === 'h' && !u.ko).length)
+})
+
+test('migration d\'une sauvegarde v1', () => {
+  const s = G.nouvellePartie()
+  s.version = 1
+  for (const c of ['guerrier', 'mage', 'rodeur']) { delete s.heros[c].connues; delete s.heros[c].capacites; s.heros[c].niveau = 9 }
+  delete s.camp.herboristerie
+  G.migrer(s)
+  assert.equal(s.version, 2)
+  assert.equal(s.heros.mage.capacites.length, 4)
+  assert.ok(s.heros.mage.connues.includes('meteores'))
+  assert.ok(s.camp.herboristerie)
+})
+
+test('maître d\'armes, repas, expédition, enchantement', () => {
+  const s = G.nouvellePartie()
+  s.or = 5000
+  assert.ok(G.apprendreCapacite(s, 'rodeur', 'paralysant'))
+  assert.ok(G.acheterRepas(s, 'croissant'))
+  const avant = G.herosPourCombat(s)[0].stats.atq
+  s.repas = null
+  assert.ok(avant > G.herosPourCombat(s)[0].stats.atq)
+  assert.ok(G.partirExpedition(s, 'crabes'))
+  s.expedition.fin = 0
+  const r = G.recupererExpedition(s)
+  assert.ok(r.or > 0 && r.objets.length === 1)
+  const o = r.objets[0]
+  assert.ok(G.enchanter(s, o.id))
 })

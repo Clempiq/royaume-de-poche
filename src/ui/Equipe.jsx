@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { CLASSES, ORDRE_EQUIPE, NIVEAU_MAX, xpPourNiveau } from '../data/heroes.js'
+import { CLASSES, ORDRE_EQUIPE, NIVEAU_MAX, MAX_CAPACITES, xpPourNiveau } from '../data/heroes.js'
+import { TYPES } from '../data/types.js'
+import { VILLES } from '../data/world.js'
 import { CONSOMMABLES, EMPLACEMENTS, RARETES } from '../data/items.js'
 import * as G from '../engine/game.js'
 import { statsHeros } from '../engine/heroes.js'
@@ -61,8 +63,13 @@ function FicheHeros({ classe, s, maj, toast }) {
           <Stat n="Vitesse" v={st.vit} />
         </div>
         <div className="discret" style={{ textAlign: 'center' }}>
-          Critique {st.crit} %
-          {Object.entries(st.elem).map(([k, v]) => ` · ${k} +${v} %`)}
+          ⚔️ Puissance d'arme <b>{st.puiss}</b> (s'ajoute à chaque attaque) · Critique {st.crit} %
+        </div>
+        <div className="ligne" style={{ justifyContent: 'center', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+          <span className="discret">Attaque de base :</span> <Type t={st.typeArme} />
+          {Object.entries(st.elem).map(([k, v]) => (
+            <span key={k} className="type" style={{ background: TYPES[k].couleur }}>{TYPES[k].icone} +{v} %</span>
+          ))}
         </div>
         {consommables.length > 0 && (
           <div className="ligne" style={{ flexWrap: 'wrap', marginTop: 8 }}>
@@ -104,19 +111,40 @@ function FicheHeros({ classe, s, maj, toast }) {
       </div>
 
       <div className="panneau">
-        <h3 className="titre" style={{ fontSize: 18, marginBottom: 4 }}>Compétences</h3>
-        {c.competences.map((k) => (
-          <div key={k.id} className={`competence ${k.niveau > h.niveau ? 'verrou' : ''}`}>
-            <div style={{ flex: 1 }}>
-              <div className="ligne">
-                <span className="n">{k.niveau > h.niveau ? '🔒 ' : ''}{k.nom}</span>
-                {k.type && <Type t={k.type} />}
-                <span className="discret" style={{ marginLeft: 'auto' }}>{k.niveau > h.niveau ? `niv. ${k.niveau}` : `${k.cout} PM`}</span>
+        <div className="ligne">
+          <h3 className="titre" style={{ fontSize: 18 }}>Capacités au combat</h3>
+          <span className="discret" style={{ marginLeft: 'auto' }}>{h.capacites.length} / {MAX_CAPACITES}</span>
+        </div>
+        <p className="discret" style={{ margin: '2px 0 6px' }}>Touchez une capacité connue pour l'emporter ou la laisser. Variez les types pour avoir une réponse à chaque monstre.</p>
+        {c.competences.map((k) => {
+          const connue = h.connues.includes(k.id)
+          const equipee = h.capacites.includes(k.id)
+          const plein = h.capacites.length >= MAX_CAPACITES
+          return (
+            <button
+              key={k.id}
+              className={`competence cap-ligne ${!connue ? 'verrou' : ''} ${equipee ? 'equipee' : ''}`}
+              disabled={!connue}
+              onClick={() => {
+                if (!equipee && plein) return toast('4 capacités maximum : retirez-en une d\'abord.')
+                if (equipee && h.capacites.length <= 1) return toast('Gardez au moins une capacité.')
+                maj((d) => G.basculerCapacite(d, classe, k.id))
+              }}
+            >
+              <span className="case">{equipee ? '✓' : ''}</span>
+              <div style={{ flex: 1 }}>
+                <div className="ligne" style={{ flexWrap: 'wrap', gap: 4 }}>
+                  <span className="n">{!connue ? '🔒 ' : ''}{k.nom}</span>
+                  {k.type && <Type t={k.type} />}
+                  <span className="discret" style={{ marginLeft: 'auto' }}>
+                    {connue ? `${k.cout} PM` : k.niveau ? `niv. ${k.niveau}` : `Maître de ${VILLES[k.maitre].nom}`}
+                  </span>
+                </div>
+                <div className="d">{k.puissance ? `Puissance ${k.puissance}${k.cible === 'ennemis' ? ', tous les ennemis' : ''} · ` : ''}{k.desc}</div>
               </div>
-              <div className="d">{k.desc}</div>
-            </div>
-          </div>
-        ))}
+            </button>
+          )
+        })}
       </div>
 
       {choixSlot && <ChoixEquipement s={s} classe={classe} slot={choixSlot} maj={maj} onFermer={() => setChoixSlot(null)} />}

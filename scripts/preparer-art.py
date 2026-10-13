@@ -37,9 +37,9 @@ for f in sorted(os.listdir(SRC)):
         continue
     nom = f[:-4]
     img = Image.open(os.path.join(SRC, f))
-    if nom.startswith(('hero-', 'm-', 'b-', 'p-')):
+    if nom.startswith(('hero-', 'm-', 'b-', 'p-', 't-')):
         out = detourer(img, 18 if nom in ('p-miche', 'p-roi') else 34)
-        taille = 640 if nom.startswith('b-') else 512
+        taille = 640 if nom.startswith('b-') else 380 if nom.startswith('t-') else 512
         out.thumbnail((taille, taille), Image.LANCZOS)
         out.save(os.path.join(DST, nom + '.webp'), 'WEBP', quality=82, method=6)
     else:

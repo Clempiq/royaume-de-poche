@@ -12,6 +12,7 @@ export const VILLES = {
     },
     arene: { nom: 'Arène des Sporelles', boss: 'champignard', niveau: 6, conseil: 6 },
     pnj: 'miche',
+    batiments: ['boulangerie', 'maitre'],
     boutique: ['potion', 'ether', 'plume'],
     suivante: 'gougere',
   },
@@ -26,6 +27,7 @@ export const VILLES = {
     },
     arene: { nom: 'Arène de la Coquille', boss: 'bulle', niveau: 11, conseil: 10 },
     pnj: 'maree',
+    batiments: ['port', 'maitre'],
     boutique: ['potion', 'superpotion', 'ether', 'plume', 'antibrulure'],
     suivante: 'cramoisi',
   },
@@ -40,6 +42,7 @@ export const VILLES = {
     },
     arene: { nom: 'Arène d\'Obsidienne', boss: 'magma', niveau: 16, conseil: 15 },
     pnj: 'enclume',
+    batiments: ['enchanteur', 'maitre'],
     boutique: ['superpotion', 'ether', 'superether', 'plume', 'antibrulure'],
     suivante: null,
   },
@@ -127,3 +130,27 @@ export const FIN_V1 = [
   { pnj: 'roi', texte: 'Il en manque encore. On raconte qu\'ils sont au-delà des montagnes, dans des terres que même mes cartes ne connaissent pas.' },
   { pnj: 'roi', texte: 'Reposez-vous, héros. La suite de l\'aventure arrive bientôt. Et moi, je vais m\'acheter un tapis antidérapant.' },
 ]
+
+// ── Bâtiments propres à chaque ville ────────────────────────
+export const BATIMENTS_VILLE = {
+  boulangerie: { nom: 'Boulangerie de Mère Miche', court: 'Boulangerie', image: 't-boulangerie', desc: 'Un bon repas renforce l\'équipe pour les 3 prochains combats.' },
+  maitre: { nom: 'Maître d\'armes', court: 'Maître d\'armes', image: 't-maitre', desc: 'Apprenez de nouvelles capacités, différentes dans chaque ville.' },
+  port: { nom: 'Le Quai des Expéditions', court: 'Expéditions', image: 't-port', desc: 'Envoyez un bateau en mer : il revient plus tard avec du butin.' },
+  enchanteur: { nom: 'Atelier d\'enchantement', court: 'Enchanteur', image: 't-enchanteur', desc: 'Relancez les bonus d\'un objet pour tenter d\'obtenir mieux.' },
+}
+
+// Repas de la boulangerie : effet pendant 3 combats
+export const REPAS = {
+  brioche: { nom: 'Brioche dorée', icone: '🍞', desc: '+15 % de PV max', prix: 30, effet: { pv: 1.15 } },
+  croissant: { nom: 'Croissant du guerrier', icone: '🥐', desc: '+12 % d\'attaque', prix: 35, effet: { atq: 1.12 } },
+  chausson: { nom: 'Chausson enchanté', icone: '🥧', desc: '+12 % de magie', prix: 35, effet: { mag: 1.12 } },
+  epices: { nom: 'Pain d\'épices', icone: '🍪', desc: '+20 % de vitesse et +5 % de critique', prix: 40, effet: { vit: 1.2, crit: 5 } },
+}
+export const DUREE_REPAS = 3
+
+// Expéditions du port : durée en minutes, coût, butin
+export const EXPEDITIONS = {
+  cote: { nom: 'Pêche côtière', icone: '🎣', minutes: 30, cout: 20, desc: 'Or et potions.', butin: { or: [60, 110], potions: 2 } },
+  crabes: { nom: 'L\'île aux crabes', icone: '🦀', minutes: 120, cout: 60, desc: 'Or et un objet rare ou mieux.', butin: { or: [150, 260], objet: 'rare', bonus: 20 } },
+  epave: { nom: 'L\'épave engloutie', icone: '⚓', minutes: 360, cout: 150, desc: 'Beaucoup d\'or, un objet épique ou mieux et une plume de phénix.', butin: { or: [380, 600], objet: 'epique', plume: 1 } },
+}

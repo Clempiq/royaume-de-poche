@@ -10,7 +10,8 @@ import Equipe from './ui/Equipe.jsx'
 import Boutique from './ui/Boutique.jsx'
 import Camp from './ui/Camp.jsx'
 import Bestiaire from './ui/Bestiaire.jsx'
-import { Rapport, Carnet } from './ui/Rapport.jsx'
+import { Rapport, Carnet, RetourExpedition } from './ui/Rapport.jsx'
+import { Boulangerie, Maitre, Port, Enchanteur } from './ui/Batiments.jsx'
 import { Dialogue, Modale } from './ui/commun.jsx'
 import { basculerSon, son, sonActif } from './ui/sons.js'
 
@@ -23,6 +24,7 @@ export default function App() {
   const [combat, setCombat] = useState(null)
   const [rapport, setRapport] = useState(null)
   const [carnet, setCarnet] = useState(null)
+  const [butinMer, setButinMer] = useState(null)
   const [dialogue, setDialogue] = useState(null)
   const [reglages, setReglages] = useState(false)
   const [toasts, setToasts] = useState([])
@@ -102,6 +104,11 @@ export default function App() {
     setRapport({ ...r, contexte })
   }
 
+  function recupererExpedition() {
+    const r = maj((d) => G.recupererExpedition(d))
+    if (r) { son('piece'); setButinMer(r) }
+  }
+
   function finAventure() {
     setDialogue({ repliques: FIN_V1, fin: () => maj((d) => { d.finVue = true }) })
   }
@@ -115,7 +122,7 @@ export default function App() {
   }
 
   const campAlerte =
-    ['mine', 'entrainement'].some((k) => G.enStock(s, k) >= BATIMENTS[k].capacite[s.camp[k].niveau] * 0.6) ? '!' : null
+    ['mine', 'entrainement', 'herboristerie'].some((k) => G.enStock(s, k) >= BATIMENTS[k].capacite[s.camp[k].niveau] * 0.6) ? '!' : null
   const voyageFini = s.voyage && G.voyageTermine(s)
 
   let contenu
@@ -127,6 +134,7 @@ export default function App() {
           maj={maj}
           toast={toast}
           lancerCombat={lancerCombat}
+          onExpedition={recupererExpedition}
           onArrivee={() => {
             const r = maj((d) => G.arriver(d))
             if (r) setCarnet(r)
@@ -135,6 +143,14 @@ export default function App() {
       )
     } else if (sousEcran === 'boutique') {
       contenu = <Boutique s={s} maj={maj} toast={toast} retour={() => setSousEcran(null)} />
+    } else if (sousEcran === 'boulangerie') {
+      contenu = <Boulangerie s={s} maj={maj} toast={toast} retour={() => setSousEcran(null)} />
+    } else if (sousEcran === 'maitre') {
+      contenu = <Maitre s={s} maj={maj} toast={toast} retour={() => setSousEcran(null)} />
+    } else if (sousEcran === 'port') {
+      contenu = <Port s={s} maj={maj} toast={toast} retour={() => setSousEcran(null)} onExpedition={recupererExpedition} />
+    } else if (sousEcran === 'enchanteur') {
+      contenu = <Enchanteur s={s} maj={maj} toast={toast} retour={() => setSousEcran(null)} />
     } else {
       contenu = (
         <Ville
@@ -144,6 +160,7 @@ export default function App() {
           lancerCombat={lancerCombat}
           aller={setSousEcran}
           finAventure={finAventure}
+          onExpedition={recupererExpedition}
           parler={(lignes) => setDialogue({ repliques: lignes })}
         />
       )
@@ -197,6 +214,8 @@ export default function App() {
           sac={combat.sac}
           fond={combat.fond}
           titre={combat.titre}
+          aide={!s.aides?.combat}
+          onAideVue={() => maj((d) => { d.aides = { ...(d.aides || {}), combat: true } })}
           onFin={finCombat}
         />
       )}
@@ -209,6 +228,7 @@ export default function App() {
         />
       )}
       {carnet && <Carnet r={carnet} onFermer={() => setCarnet(null)} />}
+      {butinMer && <RetourExpedition r={butinMer} onFermer={() => setButinMer(null)} />}
       {dialogue && (
         <Dialogue
           repliques={dialogue.repliques}
@@ -230,7 +250,7 @@ export default function App() {
               La partie est sauvegardée automatiquement dans ce navigateur. Pour recommencer à zéro, passez par l'écran titre.
             </p>
             <p className="discret" style={{ margin: 0 }}>
-              {s.stats.victoires} victoires · {s.stats.defaites} défaites · version 0.1
+              {s.stats.victoires} victoires · {s.stats.defaites} défaites · version 0.2
             </p>
             <button className="btn vert petit" onClick={() => setReglages(false)}>Fermer</button>
           </div>

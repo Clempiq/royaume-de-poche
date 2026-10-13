@@ -327,7 +327,7 @@ img { -webkit-user-drag: none; user-select: none; }
 
 /* ── Campement ───────────────────────────────────────────── */
 .batiment { display: flex; gap: 10px; align-items: flex-start; }
-.batiment .gros { font-size: 36px; width: 50px; height: 50px; display: grid; place-items: center; background: rgba(107,63,31,0.12); border-radius: 14px; flex: none; }
+.batiment .gros { font-size: 36px; width: 66px; height: 62px; display: grid; place-items: center; background: rgba(107,63,31,0.12); border-radius: 14px; flex: none; }
 .batiment .info { flex: 1; min-width: 0; }
 .batiment .niv { font-size: 11px; background: var(--bois); color: #fff; padding: 1px 7px; border-radius: 999px; margin-left: 6px; vertical-align: middle; }
 
@@ -369,3 +369,90 @@ img { -webkit-user-drag: none; user-select: none; }
   .carte-heros .portrait { height: 72px; }
   .carte-heros .portrait img { height: 86px; }
 }
+
+/* ── Combat v2 : phases, capacités, aperçu ──────────────── */
+.commandes { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.commandes .espace { flex: 1; }
+.tour-badge { font-family: var(--titre); color: #fff; background: rgba(20,10,3,0.7); padding: 4px 10px; border-radius: 999px; font-size: 13px; }
+.puce { font-size: 12px; font-weight: 900; color: #fff; background: rgba(20,10,3,0.7); border: 2px solid rgba(255,255,255,0.2); padding: 5px 9px; border-radius: 999px; }
+.puce.on { background: var(--or); border-color: #fff4c2; color: #4a2a08; }
+.annonce .petit { color: #ffcf5a; font-size: 13px; }
+
+.apercu {
+  margin: -2px 0 2px; background: #fff; color: var(--encre); border: 2px solid var(--bois-fonce); border-radius: 10px;
+  padding: 2px 8px; font-family: var(--titre); font-size: 15px; text-align: center; box-shadow: 0 3px 0 rgba(0,0,0,0.3);
+  display: flex; flex-direction: column; align-items: center; line-height: 1.1; animation: zoom 0.2s;
+}
+.apercu span { font-family: var(--texte); font-size: 10px; font-weight: 900; }
+.apercu.super { background: #ffe8b8; border-color: #d0661a; }
+.apercu.super span { color: #c24f0a; }
+.apercu.faible { background: #ececec; color: #666; }
+
+.carte-heros { cursor: pointer; }
+.carte-heros.dispo { border-color: rgba(255,220,120,0.55); }
+.carte-heros.a-joue { opacity: 0.6; }
+.carte-heros .coche { position: absolute; top: 4px; right: 6px; z-index: 2; width: 22px; height: 22px; border-radius: 50%; background: var(--vert); color: #fff; display: grid; place-items: center; font-size: 13px; border: 2px solid #fff; }
+.nombre.esquive { font-size: 22px; color: #bfe8ff; }
+
+.consigne { color: #ffe9b8; text-align: center; padding: 12px 4px 10px; font-size: 14px; }
+.entete-acteur { display: flex; align-items: baseline; gap: 8px; color: #fff; margin-bottom: 6px; font-size: 13px; }
+.entete-acteur b { font-family: var(--titre); font-weight: 400; font-size: 17px; }
+.entete-acteur span:nth-child(2) { color: #8cc8ff; font-weight: 900; }
+.discret-clair { margin-left: auto; color: #e9cfa8; font-size: 12px; }
+.grille-caps { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.tuile-cap {
+  --tc: #888;
+  display: flex; flex-direction: column; gap: 3px; text-align: left; min-height: 54px; padding: 7px 9px;
+  border-radius: 13px; color: #fff; border: 2px solid rgba(0,0,0,0.45);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--tc) 88%, #fff) 0%, var(--tc) 55%, color-mix(in srgb, var(--tc) 70%, #000) 100%);
+  box-shadow: 0 4px 0 rgba(0,0,0,0.35), inset 0 2px 0 rgba(255,255,255,0.35);
+  text-shadow: 0 1px 0 rgba(0,0,0,0.4);
+}
+.tuile-cap:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,0.35); }
+.tuile-cap:disabled { filter: grayscale(0.9) brightness(0.7); }
+.tuile-cap.soutien { --tc: #3fae8c; }
+.tuile-cap .haut { display: flex; align-items: center; gap: 4px; }
+.tuile-cap .nom { font-family: var(--titre); font-size: 15px; line-height: 1.05; flex: 1; }
+.tuile-cap .effic { font-size: 15px; filter: drop-shadow(0 1px 0 rgba(0,0,0,0.4)); }
+.tuile-cap .bas { display: flex; justify-content: space-between; gap: 4px; font-size: 11px; font-weight: 900; opacity: 0.95; }
+.tuile-cap .cout { background: rgba(0,0,0,0.3); padding: 0 6px; border-radius: 999px; white-space: nowrap; }
+.tuile-cap.compacte { min-height: 46px; padding: 5px 8px; }
+.tuile-cap.compacte .nom { font-size: 13px; }
+.rangee-actions { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 6px; margin-top: 7px; }
+.mini-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border-radius: 12px; background: linear-gradient(#b07a48, var(--bois)); border: 2px solid rgba(0,0,0,0.45); color: #fff; font-size: 18px; box-shadow: 0 3px 0 rgba(0,0,0,0.35); }
+.mini-btn span { font-size: 10px; font-weight: 900; }
+.mini-btn:active { transform: translateY(2px); }
+.aide-combat { position: absolute; inset: 0; z-index: 40; background: rgba(15,8,2,0.6); display: flex; align-items: center; padding: 18px; animation: apparait 0.2s; }
+.aide-combat .panneau { width: 100%; }
+.aide-combat ol { padding-left: 20px; margin: 8px 0 12px; font-size: 14px; display: flex; flex-direction: column; gap: 6px; }
+
+/* ── Ville : place avec bâtiments ────────────────────────── */
+.place { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
+.batisse {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 2px;
+  min-height: 118px; padding: 4px 4px 7px; border-radius: 16px;
+  background: radial-gradient(circle at 50% 60%, rgba(255,248,225,0.95), rgba(246,235,212,0.85) 70%);
+  border: 3px solid var(--bois); box-shadow: 0 4px 0 rgba(0,0,0,0.3);
+  text-align: center;
+}
+.batisse:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,0.3); }
+.batisse:disabled { filter: grayscale(0.7); opacity: 0.8; }
+.batisse img { width: 86%; max-height: 74px; object-fit: contain; filter: drop-shadow(0 3px 0 rgba(0,0,0,0.2)); }
+.batisse .n { font-family: var(--titre); font-size: 13px; line-height: 1.05; color: var(--bois-fonce); }
+.batisse .s { font-size: 10px; color: var(--encre-douce); line-height: 1.1; }
+.batisse.large { grid-column: span 2; flex-direction: row; justify-content: flex-start; min-height: 0; gap: 10px; padding: 6px 10px; text-align: left; }
+.batisse.large img { width: 70px; height: 62px; flex: none; }
+.batisse.large .n { font-size: 17px; }
+.batisse.large .s { font-size: 12px; }
+.batisse.vert { background: linear-gradient(#dff5c9, #b9e39a); border-color: var(--vert-fonce); }
+.batisse.rouge { background: linear-gradient(#ffe1d6, #f6b9a6); border-color: var(--rouge-fonce); }
+.batisse.violet { background: linear-gradient(#efe2ff, #d4bdf4); border-color: #6a3bb0; }
+.batisse .badge { position: absolute; top: -7px; right: -5px; background: var(--rouge); color: #fff; font-size: 11px; font-weight: 900; padding: 1px 7px; border-radius: 999px; border: 2px solid #fff; }
+.bandeau-info { display: flex; align-items: center; gap: 8px; background: rgba(25,12,4,0.78); color: #fff; border-radius: 14px; padding: 7px 10px; margin-bottom: 10px; font-size: 13px; border: 2px solid rgba(255,255,255,0.15); }
+.bandeau-info b { color: #ffd76a; }
+.bandeau-info .btn { width: auto; margin-left: auto; }
+.cap-ligne { width: 100%; text-align: left; align-items: center; background: none; border-radius: 10px; padding: 7px 4px; }
+.cap-ligne .case { width: 24px; height: 24px; flex: none; border-radius: 7px; border: 2px solid var(--bois); display: grid; place-items: center; color: #fff; font-weight: 900; }
+.cap-ligne.equipee { background: rgba(88,185,71,0.12); }
+.cap-ligne.equipee .case { background: var(--vert); border-color: var(--vert-fonce); }
+.cap-ligne:disabled .case { border-style: dashed; }

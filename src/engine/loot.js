@@ -13,11 +13,13 @@ export function tirerRarete(bonus = 0, rng = Math.random) {
   return 'commun'
 }
 
+// Statistiques de base selon le type d'objet. Les armes ont une
+// « puissance » qui s'ajoute à chaque attaque et capacité du héros.
 function statsDeBase(base, n) {
   switch (base) {
-    case 'epee': return { atq: 4 + n * 1.8 }
-    case 'arc': return { atq: 4 + n * 1.75, crit: 3 }
-    case 'sceptre': return { mag: 4 + n * 1.9, pm: 2 + n * 0.5 }
+    case 'epee': return { puiss: 5 + n * 1.9 }
+    case 'arc': return { puiss: 5 + n * 1.8, crit: 3 }
+    case 'sceptre': return { puiss: 5 + n * 1.9, pm: 2 + n * 0.5 }
     case 'armure': return { def: 3 + n * 1.3, pv: 5 + n * 3 }
     case 'anneau': return { atq: 1 + n * 0.6, mag: 1 + n * 0.6 }
     case 'amulette': return { pv: 4 + n * 2.4, def: 1 + n * 0.5 }
@@ -25,45 +27,9 @@ function statsDeBase(base, n) {
   }
 }
 
-export function genererObjet({ niveau, rarete, base, rng = Math.random }) {
-  const n = Math.max(1, niveau)
-  const r = rarete || tirerRarete(0, rng)
-  const b = base || tiragePondereRng([['epee', 2], ['sceptre', 2], ['arc', 2], ['armure', 3], ['anneau', 1.5], ['amulette', 1.5]], rng)
-  const def = BASES[b]
-  const rar = RARETES[r]
-  const stats = {}
-  for (const [k, v] of Object.entries(statsDeBase(b, n))) stats[k] = Math.round(v * rar.mult)
-  const elem = {}
-  const pool = AFFIXES.filter((a) => !a.armeSeulement || def.slot === 'arme')
-  const choisis = []
-  while (choisis.length < rar.affixes && pool.length) {
-    const i = Math.floor(rng() * pool.length)
-    choisis.push(pool.splice(i, 1)[0])
-  }
-  for (const a of choisis) {
-    const v = Math.round(a.val(n) * (0.8 + rng() * 0.4))
-    if (a.elem) elem[a.elem] = (elem[a.elem] || 0) + v
-    else stats[a.stat] = (stats[a.stat] || 0) + v
-  }
-  const palier = Math.min(3, Math.floor(n / 5))
-  let nom = def.noms[palier]
-  if (choisis[0]) nom += ' ' + choisis[0].suffixe
-  return {
-    id: nouvelId(),
-    base: b,
-    slot: def.slot,
-    classe: def.classe || null,
-    nom,
-    rarete: r,
-    niveau: n,
-    stats,
-    elem,
-    forge: 0,
-    prix: Math.round((10 + n * 6) * rar.prix),
-  }
-}
+const POIDS_BASES = [['epee', 2], ['sceptre', 2], ['arc', 2], ['armure', 3], ['anneau', 1], ['amulette', 1], ['charbon', 0.5], ['perle', 0.5], ['graine', 0.5], ['ambre', 0.5], ['galet', 0.5]]
 
-function tiragePondereRng(paires, rng) {
+function tirer(paires, rng) {
   if (rng === Math.random) return tiragePondere(paires)
   const total = paires.reduce((s, [, p]) => s + p, 0)
   let x = rng() * total
@@ -74,12 +40,62 @@ function tiragePondereRng(paires, rng) {
   return paires[0][0]
 }
 
+function tirerAffixes(o, rng) {
+  const def = BASES[o.base]
+  const rar = RARETES[o.rarete]
+  const pool = AFFIXES.filter((a) => (!a.armeSeulement || def.slot === 'arme' || def.slot === 'accessoire') && a.elem !== def.elem)
+  const choisis = []
+  while (choisis.length < rar.affixes && pool.length) choisis.push(pool.splice(Math.floor(rng() * pool.length), 1)[0])
+  o.stats = {}
+  for (const [k, v] of Object.entries(statsDeBase(o.base, o.niveau))) o.stats[k] = Math.round(v * rar.mult)
+  o.elem = {}
+  if (def.elem) o.elem[def.elem] = Math.round((12 + o.niveau * 1.2) * rar.mult)
+  for (const a of choisis) {
+    const v = Math.round(a.val(o.niveau) * (0.8 + rng() * 0.4))
+    if (a.elem) o.elem[a.elem] = (o.elem[a.elem] || 0) + v
+    else o.stats[a.stat] = (o.stats[a.stat] || 0) + v
+  }
+  const palier = Math.min(3, Math.floor(o.niveau / 5))
+  o.nom = def.noms[palier] + (choisis[0] && !def.elem ? ' ' + choisis[0].suffixe : '')
+}
+
+export function genererObjet({ niveau, rarete, base, rng = Math.random }) {
+  const n = Math.max(1, niveau)
+  const r = rarete || tirerRarete(0, rng)
+  const b = base || tirer(POIDS_BASES, rng)
+  const def = BASES[b]
+  const o = {
+    id: nouvelId(),
+    base: b,
+    slot: def.slot,
+    classe: def.classe || null,
+    rarete: r,
+    niveau: n,
+    forge: 0,
+    prix: Math.round((10 + n * 6) * RARETES[r].prix),
+  }
+  tirerAffixes(o, rng)
+  return o
+}
+
+// Atelier d'enchantement : on relance les bonus, la base et la rareté restent
+export function reenchanter(o) {
+  tirerAffixes(o, Math.random)
+}
+export const coutEnchantement = (o) => Math.round(o.prix * 0.7 + 20)
+
 // Statistiques réelles d'un objet, bonus de forge compris (+12 % par niveau)
 export function statsObjet(o) {
   const m = 1 + 0.12 * (o.forge || 0)
   const s = {}
   for (const [k, v] of Object.entries(o.stats)) s[k] = Math.round(v * m)
   return s
+}
+export function elemObjet(o) {
+  const m = 1 + 0.12 * (o.forge || 0)
+  const e = {}
+  for (const [k, v] of Object.entries(o.elem || {})) e[k] = Math.round(v * m)
+  return e
 }
 
 export const prixVente = (o) => Math.max(1, Math.round(o.prix * (1 + 0.2 * (o.forge || 0)) / 3))

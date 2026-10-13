@@ -2,13 +2,13 @@
 // voyages, campement. Les fonctions modifient l'état reçu (un brouillon)
 // et renvoient éventuellement un rapport à afficher.
 
-import { CLASSES, ORDRE_EQUIPE } from '../data/heroes.js'
+import { CLASSES, ORDRE_EQUIPE, MAX_CAPACITES, capaciteParId } from '../data/heroes.js'
 import { MONSTRES } from '../data/monsters.js'
-import { VILLES, ORDRE_VILLES, VOYAGES, EVENEMENTS_VOYAGE } from '../data/world.js'
+import { VILLES, ORDRE_VILLES, VOYAGES, EVENEMENTS_VOYAGE, REPAS, DUREE_REPAS, EXPEDITIONS } from '../data/world.js'
 import { CONSOMMABLES } from '../data/items.js'
 import { BATIMENTS, NIVEAU_MAX_BATIMENT } from '../data/camp.js'
-import { nouveauHeros, gagnerXp, soignerHeros, statsHeros, bornerHeros } from './heroes.js'
-import { genererObjet, tirerRarete, prixVente, coutForge, peutForger } from './loot.js'
+import { nouveauHeros, gagnerXp, soignerHeros, statsHeros, bornerHeros, migrerHeros, apprendre } from './heroes.js'
+import { genererObjet, tirerRarete, prixVente, coutForge, peutForger, reenchanter, coutEnchantement } from './loot.js'
 import { entre, tiragePondere, maintenant, minutesEnMs, heuresJeu, graine, hacher, vitesse } from './util.js'
 
 export const CLE_SAUVEGARDE = 'royaume-de-poche-v1'
@@ -18,7 +18,7 @@ const MULT_XP = 1.6
 export function nouvellePartie() {
   const t = maintenant()
   const s = {
-    version: 1,
+    version: 2,
     cree: t,
     introVue: false,
     ville: 'brioche',
@@ -32,9 +32,13 @@ export function nouvellePartie() {
     camp: {
       mine: { niveau: 1, collecte: t },
       entrainement: { niveau: 1, collecte: t },
+      herboristerie: { niveau: 1, collecte: t },
       forge: { niveau: 1 },
       chantier: null,
     },
+    repas: null,
+    expedition: null,
+    aides: {},
     bestiaire: {},
     boutique: {},
     stats: { combats: 0, victoires: 0, defaites: 0 },
@@ -55,11 +59,24 @@ export function charger() {
     const brut = localStorage.getItem(CLE_SAUVEGARDE)
     if (!brut) return null
     const s = JSON.parse(brut)
-    if (s?.version !== 1) return null
-    return s
+    if (!s || !s.version) return null
+    return migrer(s)
   } catch {
     return null
   }
+}
+
+// Met à niveau une sauvegarde d'une version précédente
+export function migrer(s) {
+  if (s.version < 2) {
+    for (const c of ORDRE_EQUIPE) migrerHeros(s.heros[c])
+    s.camp.herboristerie = s.camp.herboristerie || { niveau: 1, collecte: maintenant() }
+    s.repas = null
+    s.expedition = null
+    s.aides = {}
+    s.version = 2
+  }
+  return s
 }
 
 export function sauvegarder(s) {
@@ -112,9 +129,14 @@ export function rencontreArene(s) {
 }
 
 export function herosPourCombat(s) {
+  const r = s.repas ? REPAS[s.repas.id].effet : {}
   return ORDRE_EQUIPE.map((c) => {
     const h = s.heros[c]
-    return { classe: c, niveau: h.niveau, pv: h.pv, pm: h.pm, stats: statsHeros(h, s.inventaire) }
+    const st = statsHeros(h, s.inventaire)
+    for (const k of ['pv', 'atq', 'mag', 'vit']) if (r[k]) st[k] = Math.round(st[k] * r[k])
+    if (r.crit) st.crit += r.crit
+    const pv = r.pv && h.pv >= statsHeros(h, s.inventaire).pv ? st.pv : h.pv
+    return { classe: c, niveau: h.niveau, pv, pm: h.pm, stats: st, capacites: h.capacites }
   })
 }
 
@@ -125,6 +147,11 @@ export function finCombat(s, bilan, contexte) {
   for (const h of bilan.heros) {
     s.heros[h.classe].pv = h.pv
     s.heros[h.classe].pm = h.pm
+    bornerHeros(s.heros[h.classe], s.inventaire)
+  }
+  if (s.repas && bilan.issue !== 'fuite') {
+    s.repas.combats -= 1
+    if (s.repas.combats <= 0) s.repas = null
   }
   s.stats.combats += 1
   const rapport = { issue: bilan.issue, xp: 0, or: 0, objets: [], consommables: {}, niveaux: [], eclat: null }
@@ -391,6 +418,11 @@ export function recolter(s, bat) {
   if (n <= 0) return 0
   if (bat === 'mine') s.or += n
   if (bat === 'entrainement') for (const c of ORDRE_EQUIPE) gagnerXp(s.heros[c], n, s.inventaire)
+  if (bat === 'herboristerie') {
+    const sup = s.camp.herboristerie.niveau >= 3 ? Math.floor(n / 2) : 0
+    if (sup) s.sac.superpotion = (s.sac.superpotion || 0) + sup
+    s.sac.potion = (s.sac.potion || 0) + (n - sup)
+  }
   s.camp[bat].collecte = maintenant()
   return n
 }
@@ -416,4 +448,85 @@ export function ameliorer(s, bat) {
 
 export function progressionAventure(s) {
   return { eclats: s.eclats.length, total: ORDRE_VILLES.length }
+}
+
+// ── Boulangerie ─────────────────────────────────────────────
+export function acheterRepas(s, id) {
+  const r = REPAS[id]
+  if (!r || s.or < r.prix) return false
+  s.or -= r.prix
+  s.repas = { id, combats: DUREE_REPAS }
+  return true
+}
+
+// ── Maîtres d'armes et capacités ────────────────────────────
+export function capacitesEnseignees(ville) {
+  const liste = []
+  for (const c of ORDRE_EQUIPE) for (const k of CLASSES[c].competences) if (k.maitre === ville) liste.push({ classe: c, ...k })
+  return liste
+}
+
+export function apprendreCapacite(s, classe, id) {
+  const k = capaciteParId(classe, id)
+  const h = s.heros[classe]
+  if (!k || !k.prix || h.connues.includes(id) || s.or < k.prix) return false
+  s.or -= k.prix
+  return apprendre(h, id)
+}
+
+// Change les 4 capacités emportées au combat
+export function basculerCapacite(s, classe, id) {
+  const h = s.heros[classe]
+  if (!h.connues.includes(id)) return false
+  if (h.capacites.includes(id)) {
+    if (h.capacites.length <= 1) return false
+    h.capacites = h.capacites.filter((x) => x !== id)
+  } else {
+    if (h.capacites.length >= MAX_CAPACITES) return false
+    h.capacites.push(id)
+  }
+  return true
+}
+
+// ── Expéditions en mer ──────────────────────────────────────
+export function partirExpedition(s, id) {
+  const e = EXPEDITIONS[id]
+  if (!e || s.expedition || s.or < e.cout) return false
+  s.or -= e.cout
+  s.expedition = { id, debut: maintenant(), fin: maintenant() + minutesEnMs(e.minutes) }
+  return true
+}
+
+export const expeditionRentree = (s) => !!s.expedition && maintenant() >= s.expedition.fin
+
+export function recupererExpedition(s) {
+  if (!expeditionRentree(s)) return null
+  const e = EXPEDITIONS[s.expedition.id]
+  const b = e.butin
+  const niv = Math.max(...ORDRE_EQUIPE.map((c) => s.heros[c].niveau))
+  const r = { nom: e.nom, or: entre(b.or[0], b.or[1]), objets: [], consommables: {} }
+  s.or += r.or
+  if (b.potions) r.consommables[niv >= 8 ? 'superpotion' : 'potion'] = b.potions
+  if (b.plume) r.consommables.plume = b.plume
+  if (b.objet) {
+    const rar = b.objet === 'epique' ? (Math.random() < 0.25 ? 'legendaire' : 'epique') : tirerRarete(b.bonus || 0) === 'commun' ? 'rare' : tirerRarete(b.bonus || 0)
+    const o = genererObjet({ niveau: niv, rarete: rar })
+    ajouterObjet(s, o)
+    r.objets.push(o)
+  }
+  for (const [k, n] of Object.entries(r.consommables)) s.sac[k] = (s.sac[k] || 0) + n
+  s.expedition = null
+  return r
+}
+
+// ── Enchantement ────────────────────────────────────────────
+export function enchanter(s, id) {
+  const o = s.inventaire.find((x) => x.id === id)
+  if (!o || o.rarete === 'commun') return false
+  const c = coutEnchantement(o)
+  if (s.or < c) return false
+  s.or -= c
+  reenchanter(o)
+  for (const k of ORDRE_EQUIPE) bornerHeros(s.heros[k], s.inventaire)
+  return true
 }
