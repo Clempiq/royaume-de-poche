@@ -1,10 +1,38 @@
 # Royaume de Poche
 
-RPG d'aventure solo, pensé pour le téléphone et joué dans le navigateur. Troisième jeu du studio Cosmoth.
+> Un RPG d'aventure solo pensé pour le téléphone et joué dans le navigateur, qui mélange combats tactiques, village à construire et butin aléatoire.
 
-En ligne : https://royaume-de-poche.vercel.app (mode test : https://royaume-de-poche.vercel.app/?vitesse=60)
+**Jouer :** [royaume-de-poche.vercel.app](https://royaume-de-poche.vercel.app) (mode test accéléré : [?vitesse=60](https://royaume-de-poche.vercel.app/?vitesse=60))
 
-Le roi Pépin a cassé le Sceptre des Saisons. Une équipe de trois héros (Bastien le guerrier, Lulu la mage, Pia la rôdeuse) parcourt le royaume pour récupérer les éclats, gardés par des champions d'arène.
+Troisième jeu du studio [Cosmoth](https://cosmoth.vercel.app). Le roi Pépin a cassé le Sceptre des Saisons. Une équipe de trois héros (Bastien le guerrier, Lulu la mage, Pia la rôdeuse) parcourt le royaume pour récupérer les éclats, gardés par des champions d'arène.
+
+## Le problème
+
+Les jeux mobiles qui combinent progression de village, combats et collection d'objets sont souvent truffés de publicités, d'achats intégrés et de temps d'attente artificiels.
+
+**Pour qui :** les joueurs qui aiment les boucles de jeu de Clash of Clans, Pokémon et Diablo, et veulent une aventure complète avec une vraie fin, sans pression à l'achat.
+
+## Stack
+
+| Catégorie | Technologie |
+|---|---|
+| Front | React 19, Vite 7 |
+| Moteur | Règles en JavaScript pur (`src/engine/`), testables avec Node |
+| Données | Contenu séparé du code (`src/data/`), sauvegarde dans le `localStorage` |
+| Tests | Tests du moteur, simulation de 30 parties par une IA pour l'équilibrage, parcours mobile Playwright |
+| Illustrations | Générées par IA, détourées et converties en WebP par un script Python |
+| Déploiement | Vercel |
+
+## Statut
+
+🚧 **En cours, version 0.3 jouable** de bout en bout (aventure complète et défi du jour). Les anciennes sauvegardes sont migrées automatiquement à chaque évolution.
+
+## Ce que j'ai appris
+
+- **Mesurer l'équilibrage plutôt que le deviner** : une IA joue 30 parties pour vérifier que la progression tient.
+- **Rendre le jeu lisible** : les ennemis annoncent leur intention avant chaque tour, ce qui transforme un combat aléatoire en vraie décision.
+- **Séparer contenu, règles et interface** pour ajouter une ville ou un monstre sans toucher au moteur.
+- **Respecter le temps du joueur** : routes sans attente, mode test accéléré, migration des sauvegardes avec remboursement.
 
 ## Ce qu'il y a dans le jeu
 
